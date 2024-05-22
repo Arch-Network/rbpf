@@ -7,7 +7,7 @@ use crate::types::*;
 
 pub fn test_everything() {
     println!("Hello");
-    let mut file = File::open("ebpf.so").unwrap();
+    let mut file = File::open("src/ebpf.so").unwrap();
     let mut elf = Vec::new();
     file.read_to_end(&mut elf).unwrap();
     let executable =

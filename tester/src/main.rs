@@ -11,6 +11,6 @@ use test::test_everything;
 
 
 fn main() {
-    dbg!("hey");
-// test_everything()
+    // println!("Hey");
+test_everything()
 }

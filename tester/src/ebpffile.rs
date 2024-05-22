@@ -24,4 +24,4 @@ pub fn process_instruction(program_id: Pubkey, utxos : &[UtxoInfo], instruction_
     })
 }
 
-entrypoint!(process_instruction);
+// entrypoint!(process_instruction);
