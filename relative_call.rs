@@ -10,6 +10,7 @@ pub fn entrypoint(x: &mut u8) -> u64 {
     let mut stack = unsafe { stack.assume_init() };
     *x = 2;
     stack[0] = *x as u64;
+    println!("Hello");
     let y = function_stack_ref(&mut stack);
     let z = *x as u64;
     return function_sum(y, z);

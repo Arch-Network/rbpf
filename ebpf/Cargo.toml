@@ -1,0 +1,17 @@
+[package]
+name = "ebpf"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tester = { path = "../tester" }
+rand = { version = "0.8", default-features = false }
+rand_core = { version = "0.6", default-features = false}
+rand_chacha = { version = "0.3", default-features = false}
+borsh = { version = "1.4.0", features = ["derive"] }
+
+
+[lib]
+crate-type = ["cdylib", "lib"] 
