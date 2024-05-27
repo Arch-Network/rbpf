@@ -6,5 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-borsh = { version = "1.4.0", features = ["derive"] }
+borsh = "0.9.3"
 solana_rbpf = "0.8.0"
+core-types ={ path = "../core"}
