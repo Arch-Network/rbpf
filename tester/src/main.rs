@@ -4,6 +4,7 @@ mod vm;
 pub mod test;
 mod ebpffile;
 use test::test_everything;
+pub mod config;
 
 
 fn main() {

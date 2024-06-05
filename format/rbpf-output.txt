@@ -1,0 +1,1188 @@
+   Compiling solana_rbpf v0.8.1
+   Compiling format v0.1.0 (/Users/deepanshuhooda/work/rbpf-strings/format)
+    Finished dev [unoptimized + debuginfo] target(s) in 1.49s
+     Running `/Users/deepanshuhooda/work/rbpf-strings/target/debug/format`
+Elf64Ehdr {
+    e_ident: ElfIdent {
+        ei_mag: [
+            0x7F,
+            0x45,
+            0x4C,
+            0x46,
+        ],
+        ei_class: 0x2,
+        ei_data: 0x1,
+        ei_version: 0x1,
+        ei_osabi: 0x0,
+        ei_abiversion: 0x0,
+        ei_pad: [
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+            0x0,
+        ],
+    },
+    e_type: 0x3,
+    e_machine: 0xF7,
+    e_version: 0x1,
+    e_entry: 0x120,
+    e_phoff: 0x40,
+    e_shoff: 0x23D0,
+    e_flags: 0x0,
+    e_ehsize: 0x40,
+    e_phentsize: 0x38,
+    e_phnum: 0x4,
+    e_shentsize: 0x40,
+    e_shnum: 0xB,
+    e_shstrndx: 0x9,
+}
+Elf64Phdr {
+    p_type: 0x1,
+    p_flags: 0x5,
+    p_offset: 0x120,
+    p_vaddr: 0x120,
+    p_paddr: 0x120,
+    p_filesz: 0xBB8,
+    p_memsz: 0xBB8,
+    p_align: 0x1000,
+}
+Elf64Phdr {
+    p_type: 0x1,
+    p_flags: 0x4,
+    p_offset: 0xCD8,
+    p_vaddr: 0xCD8,
+    p_paddr: 0xCD8,
+    p_filesz: 0x2E,
+    p_memsz: 0x2E,
+    p_align: 0x1000,
+}
+Elf64Phdr {
+    p_type: 0x1,
+    p_flags: 0x4,
+    p_offset: 0xDB8,
+    p_vaddr: 0xDB8,
+    p_paddr: 0xDB8,
+    p_filesz: 0x1E8,
+    p_memsz: 0x1E8,
+    p_align: 0x1000,
+}
+Elf64Phdr {
+    p_type: 0x2,
+    p_flags: 0x6,
+    p_offset: 0xD08,
+    p_vaddr: 0xD08,
+    p_paddr: 0xD08,
+    p_filesz: 0xB0,
+    p_memsz: 0xB0,
+    p_align: 0x8,
+}
+
+Elf64Shdr {
+    sh_name: 0x0,
+    sh_type: 0x0,
+    sh_flags: 0x0,
+    sh_addr: 0x0,
+    sh_offset: 0x0,
+    sh_size: 0x0,
+    sh_link: 0x0,
+    sh_info: 0x0,
+    sh_addralign: 0x0,
+    sh_entsize: 0x0,
+}
+.text
+Elf64Shdr {
+    sh_name: 0x1,
+    sh_type: 0x1,
+    sh_flags: 0x6,
+    sh_addr: 0x120,
+    sh_offset: 0x120,
+    sh_size: 0xBB8,
+    sh_link: 0x0,
+    sh_info: 0x0,
+    sh_addralign: 0x8,
+    sh_entsize: 0x0,
+}
+.rodata
+Elf64Shdr {
+    sh_name: 0x7,
+    sh_type: 0x1,
+    sh_flags: 0x2,
+    sh_addr: 0xCD8,
+    sh_offset: 0xCD8,
+    sh_size: 0x2E,
+    sh_link: 0x0,
+    sh_info: 0x0,
+    sh_addralign: 0x1,
+    sh_entsize: 0x0,
+}
+.dynamic
+Elf64Shdr {
+    sh_name: 0xF,
+    sh_type: 0x6,
+    sh_flags: 0x3,
+    sh_addr: 0xD08,
+    sh_offset: 0xD08,
+    sh_size: 0xB0,
+    sh_link: 0x5,
+    sh_info: 0x0,
+    sh_addralign: 0x8,
+    sh_entsize: 0x10,
+}
+.dynsym
+Elf64Shdr {
+    sh_name: 0x18,
+    sh_type: 0xB,
+    sh_flags: 0x2,
+    sh_addr: 0xDB8,
+    sh_offset: 0xDB8,
+    sh_size: 0x90,
+    sh_link: 0x5,
+    sh_info: 0x1,
+    sh_addralign: 0x8,
+    sh_entsize: 0x18,
+}
+.dynstr
+Elf64Shdr {
+    sh_name: 0x20,
+    sh_type: 0x3,
+    sh_flags: 0x2,
+    sh_addr: 0xE48,
+    sh_offset: 0xE48,
+    sh_size: 0x33,
+    sh_link: 0x0,
+    sh_info: 0x0,
+    sh_addralign: 0x1,
+    sh_entsize: 0x0,
+}
+.rel.dyn
+Elf64Shdr {
+    sh_name: 0x28,
+    sh_type: 0x9,
+    sh_flags: 0x2,
+    sh_addr: 0xE80,
+    sh_offset: 0xE80,
+    sh_size: 0x120,
+    sh_link: 0x4,
+    sh_info: 0x0,
+    sh_addralign: 0x8,
+    sh_entsize: 0x10,
+}
+.comment
+Elf64Shdr {
+    sh_name: 0x31,
+    sh_type: 0x1,
+    sh_flags: 0x30,
+    sh_addr: 0x0,
+    sh_offset: 0xFA0,
+    sh_size: 0x13,
+    sh_link: 0x0,
+    sh_info: 0x0,
+    sh_addralign: 0x1,
+    sh_entsize: 0x1,
+}
+.symtab
+Elf64Shdr {
+    sh_name: 0x3A,
+    sh_type: 0x2,
+    sh_flags: 0x0,
+    sh_addr: 0x0,
+    sh_offset: 0xFB8,
+    sh_size: 0xA08,
+    sh_link: 0xA,
+    sh_info: 0x66,
+    sh_addralign: 0x8,
+    sh_entsize: 0x18,
+}
+.shstrtab
+Elf64Shdr {
+    sh_name: 0x42,
+    sh_type: 0x3,
+    sh_flags: 0x0,
+    sh_addr: 0x0,
+    sh_offset: 0x19C0,
+    sh_size: 0x54,
+    sh_link: 0x0,
+    sh_info: 0x0,
+    sh_addralign: 0x1,
+    sh_entsize: 0x0,
+}
+.strtab
+Elf64Shdr {
+    sh_name: 0x4C,
+    sh_type: 0x3,
+    sh_flags: 0x0,
+    sh_addr: 0x0,
+    sh_offset: 0x1A14,
+    sh_size: 0x9B8,
+    sh_link: 0x0,
+    sh_info: 0x0,
+    sh_addralign: 0x1,
+    sh_entsize: 0x0,
+}
+[
+    Elf64Sym {
+        st_name: 0x0,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x0,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x1,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x1D,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x178,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x24,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x1A8,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x2B,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x1B8,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x32,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x1F0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x39,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x250,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x41,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x280,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x49,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x290,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x51,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x2B8,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x59,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x2A8,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x61,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x800,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x69,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x328,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x71,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x358,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x79,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x368,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x81,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x3A8,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x89,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x3E0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x91,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x448,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x99,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x478,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0xA1,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x488,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0xA9,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x4C8,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0xB1,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x578,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0xB9,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x5A8,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0xC1,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x5B8,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0xC9,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x5F0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0xD1,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x650,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0xD9,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x680,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0xE1,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x690,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0xE9,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x6D0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0xF1,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x798,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0xF9,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x7C8,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x101,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x7D8,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x109,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x818,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x111,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x8A8,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x118,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x8D8,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x11F,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x8F0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x126,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x938,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x809,
+        st_info: 0x2,
+        st_other: 0x2,
+        st_shndx: 0x1,
+        st_value: 0x870,
+        st_size: 0xD0,
+    },
+    Elf64Sym {
+        st_name: 0x12D,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x0,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x940,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x8A0,
+        st_info: 0x2,
+        st_other: 0x2,
+        st_shndx: 0x1,
+        st_value: 0x940,
+        st_size: 0x10,
+    },
+    Elf64Sym {
+        st_name: 0x13E,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x160,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x9C0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x816,
+        st_info: 0x2,
+        st_other: 0x2,
+        st_shndx: 0x1,
+        st_value: 0x950,
+        st_size: 0xB8,
+    },
+    Elf64Sym {
+        st_name: 0x168,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x183,
+        st_info: 0x2,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0xA18,
+        st_size: 0x10,
+    },
+    Elf64Sym {
+        st_name: 0x1AF,
+        st_info: 0x1,
+        st_other: 0x0,
+        st_shndx: 0x2,
+        st_value: 0xCD8,
+        st_size: 0x2E,
+    },
+    Elf64Sym {
+        st_name: 0x8BB,
+        st_info: 0x2,
+        st_other: 0x2,
+        st_shndx: 0x1,
+        st_value: 0xA68,
+        st_size: 0x10,
+    },
+    Elf64Sym {
+        st_name: 0x8C4,
+        st_info: 0x2,
+        st_other: 0x2,
+        st_shndx: 0x1,
+        st_value: 0xA28,
+        st_size: 0x10,
+    },
+    Elf64Sym {
+        st_name: 0x901,
+        st_info: 0x2,
+        st_other: 0x2,
+        st_shndx: 0x1,
+        st_value: 0xA08,
+        st_size: 0x10,
+    },
+    Elf64Sym {
+        st_name: 0x92B,
+        st_info: 0x2,
+        st_other: 0x2,
+        st_shndx: 0x1,
+        st_value: 0xA38,
+        st_size: 0x30,
+    },
+    Elf64Sym {
+        st_name: 0x1DB,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x1FE,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x21F,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x854,
+        st_info: 0x2,
+        st_other: 0x2,
+        st_shndx: 0x1,
+        st_value: 0xA78,
+        st_size: 0x10,
+    },
+    Elf64Sym {
+        st_name: 0x956,
+        st_info: 0x2,
+        st_other: 0x2,
+        st_shndx: 0x1,
+        st_value: 0xA88,
+        st_size: 0x28,
+    },
+    Elf64Sym {
+        st_name: 0x23C,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x258,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x283,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0xBA8,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x28A,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0xB50,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x291,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0xB08,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x298,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0xB98,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x29F,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0xB58,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x2A6,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0xCB0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x2AD,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0xC78,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x2B4,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0xC48,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x2BB,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0xCC8,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x2C2,
+        st_info: 0x0,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0xC80,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x892,
+        st_info: 0x2,
+        st_other: 0x2,
+        st_shndx: 0x1,
+        st_value: 0xBC0,
+        st_size: 0x118,
+    },
+    Elf64Sym {
+        st_name: 0x899,
+        st_info: 0x2,
+        st_other: 0x2,
+        st_shndx: 0x1,
+        st_value: 0xAB0,
+        st_size: 0x110,
+    },
+    Elf64Sym {
+        st_name: 0x2C9,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x2F4,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x31F,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x34A,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x375,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x3A0,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x3CB,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x3F6,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x421,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x44C,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x477,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x4A2,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x4CD,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x4F8,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x523,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x54E,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x579,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x5A4,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x5CF,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x5FA,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x625,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x650,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x67B,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x6A6,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x6D1,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x6FC,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x727,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x752,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x77D,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x7A8,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x7D3,
+        st_info: 0x4,
+        st_other: 0x0,
+        st_shndx: 0xFFF1,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x9AF,
+        st_info: 0x0,
+        st_other: 0x2,
+        st_shndx: 0x3,
+        st_value: 0xD08,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x7FE,
+        st_info: 0x12,
+        st_other: 0x0,
+        st_shndx: 0x1,
+        st_value: 0x120,
+        st_size: 0x750,
+    },
+    Elf64Sym {
+        st_name: 0x88C,
+        st_info: 0x10,
+        st_other: 0x0,
+        st_shndx: 0x0,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x8F8,
+        st_info: 0x10,
+        st_other: 0x0,
+        st_shndx: 0x0,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x997,
+        st_info: 0x10,
+        st_other: 0x0,
+        st_shndx: 0x0,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+    Elf64Sym {
+        st_name: 0x9A3,
+        st_info: 0x10,
+        st_other: 0x0,
+        st_shndx: 0x0,
+        st_value: 0x0,
+        st_size: 0x0,
+    },
+]
+ebpf.82c6a91711260e96-cgu.0
+LBB0_2
+LBB0_4
+LBB0_6
+LBB0_8
+LBB0_10
+LBB0_12
+LBB0_14
+LBB0_17
+LBB0_15
+LBB0_16
+LBB0_19
+LBB0_21
+LBB0_23
+LBB0_25
+LBB0_27
+LBB0_29
+LBB0_31
+LBB0_33
+LBB0_35
+LBB0_37
+LBB0_39
+LBB0_41
+LBB0_43
+LBB0_45
+LBB0_47
+LBB0_49
+LBB0_51
+LBB0_53
+LBB0_55
+LBB0_57
+LBB0_59
+LBB1_2
+LBB1_4
+LBB1_6
+LBB1_8
+__rust_alloc
+2pcbacfvh78q04qj
+__rust_alloc_error_handler
+core_types.258e6b3a3beff174-cgu.0
+LBB62_3
+_ZN10core_types11dentrypoint11deserialize17h249da8c3f0715e7dE
+std.b43219b47229f51b-cgu.0
+_ZN3std3sys3sbf7sol_log17h4aa2b84fd0f047afE
+.Lanon.3c4b9e1b83aba65f518faaf3c2bbdeb6.504
+__rg_oom
+_ZN3std3sys3sbf14abort_internal17h3768a8b3d18a5385E
+_ZN3std7process5abort17hcef38be51ada9bb4E
+_ZN3std5alloc8rust_oom17h917edb49aef63cb2E
+panic_abort.70bb53666ed0d001-cgu.0
+hashbrown.5041212c5f4143a3-cgu.0
+alloc.293e626d0547fb3e-cgu.0
+_ZN5alloc5alloc18handle_alloc_error17h1c79e916107a0e7bE
+_ZN5alloc5alloc18handle_alloc_error8rt_error17h615308e57574c221E
+core.e331350d01507b11-cgu.0
+compiler_builtins.39567c74ea00e13b-cgu.020
+LBB0_4
+LBB0_5
+LBB0_3
+LBB0_7
+LBB0_6
+LBB2_2
+LBB2_4
+LBB2_7
+LBB2_3
+LBB2_5
+memset
+memcpy
+compiler_builtins.39567c74ea00e13b-cgu.106
+compiler_builtins.39567c74ea00e13b-cgu.010
+compiler_builtins.39567c74ea00e13b-cgu.118
+compiler_builtins.39567c74ea00e13b-cgu.001
+compiler_builtins.39567c74ea00e13b-cgu.124
+compiler_builtins.39567c74ea00e13b-cgu.127
+compiler_builtins.39567c74ea00e13b-cgu.131
+compiler_builtins.39567c74ea00e13b-cgu.132
+compiler_builtins.39567c74ea00e13b-cgu.133
+compiler_builtins.39567c74ea00e13b-cgu.139
+compiler_builtins.39567c74ea00e13b-cgu.003
+compiler_builtins.39567c74ea00e13b-cgu.146
+compiler_builtins.39567c74ea00e13b-cgu.147
+compiler_builtins.39567c74ea00e13b-cgu.148
+compiler_builtins.39567c74ea00e13b-cgu.155
+compiler_builtins.39567c74ea00e13b-cgu.156
+compiler_builtins.39567c74ea00e13b-cgu.170
+compiler_builtins.39567c74ea00e13b-cgu.175
+compiler_builtins.39567c74ea00e13b-cgu.181
+compiler_builtins.39567c74ea00e13b-cgu.185
+compiler_builtins.39567c74ea00e13b-cgu.186
+compiler_builtins.39567c74ea00e13b-cgu.203
+compiler_builtins.39567c74ea00e13b-cgu.006
+compiler_builtins.39567c74ea00e13b-cgu.204
+compiler_builtins.39567c74ea00e13b-cgu.206
+compiler_builtins.39567c74ea00e13b-cgu.211
+compiler_builtins.39567c74ea00e13b-cgu.216
+compiler_builtins.39567c74ea00e13b-cgu.226
+compiler_builtins.39567c74ea00e13b-cgu.231
+compiler_builtins.39567c74ea00e13b-cgu.248
+compiler_builtins.39567c74ea00e13b-cgu.254
+_DYNAMIC
+entrypoint
+abort
+sol_log_
+sol_memcpy_
+sol_memset_
+

@@ -168,24 +168,21 @@ declare_builtin_function!(
         _arg5: u64,
         memory_mapping: &mut MemoryMapping,
     ) -> Result<u64, Box<dyn std::error::Error>> {
-        println!("vm_addr:{:x}, len: {:x}",vm_addr,len);
         let host_addr: Result<u64, EbpfError> =
             memory_mapping.map(AccessType::Load, vm_addr, len).into();
         let host_addr = host_addr?;
-        println!("host_addr : {:x?}",host_addr);
-        return Ok(host_addr);
-    //     let mut message;
-    //     unsafe {
-    //         message = from_utf8(from_raw_parts(host_addr as *const u8, len as usize))
-    //             .unwrap_or("Invalid UTF-8 String");
-    //         println!("log: {message}");
-    //     }
+        let mut message;
+        unsafe {
+            message = from_utf8(from_raw_parts(host_addr as *const u8, len as usize))
+                .unwrap_or("Invalid UTF-8 String");
+            println!("log: {message}");
+        }
 
-    //    if let Ok(num) = message.as_bytes().read_u64::<BigEndian>() {
-    //     return Ok(num);
-    //    } else {
-    //     return Err("Length of string too big".into())
-    //    }
+       if let Ok(num) = message.as_bytes().read_u64::<BigEndian>() {
+        return Ok(num);
+       } else {
+        return Err("Length of string too big".into())
+       }
 
     }
 );

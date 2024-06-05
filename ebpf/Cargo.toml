@@ -7,10 +7,10 @@ edition = "2021"
 
 [dependencies]
 tester = { path = "../tester" }
-rand = { version = "0.8", default-features = false }
-rand_core = { version = "0.6", default-features = false}
-rand_chacha = { version = "0.3", default-features = false}
-borsh = { version = "1.4.0", features = ["derive"] }
+borsh = { version = "1.5.1" }
+core-types = {path = "../core"}
+solana-program = "=1.18.2"
+bitcoin = "0.32.1"
 
 
 [lib]
