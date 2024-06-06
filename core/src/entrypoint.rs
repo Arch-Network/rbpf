@@ -88,6 +88,9 @@ macro_rules! entrypoint {
             use std::collections::HashMap;
             let (program_id, utxos, instruction_data) =
                 unsafe { $crate::entrypoint::deserialize(input) };
+            println!("Program ID: {:?}", program_id);
+            println!("Utxos: {:?}", utxos);
+            println!("Ins_Data: {:?}", instruction_data);
             match $process_instruction(program_id, &utxos, instruction_data) {
                 Ok(tx_hex) => {
                     let mut new_authorities: HashMap<String, Vec<u8>> = HashMap::new();

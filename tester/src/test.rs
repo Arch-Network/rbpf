@@ -78,6 +78,7 @@ pub fn test_everything() {
         let mut heap = AlignedMemory::<{ ebpf::HOST_ALIGN }>::zero_filled(120 * 1024);
     
         let mut mem = org_construct_data();
+        println!("ORG DATA: {:?}", mem);
         mem.extend_from_slice(&[0u8;1024]);
         let mem_region = MemoryRegion::new_writable(&mut mem, ebpf::MM_INPUT_START);
     
@@ -102,13 +103,13 @@ pub fn test_everything() {
     
         let (instruction_count, result) = vm.execute_program(&executable, true);
         println!("result is {:?}", result);
-        // println!("{:?}",mem);
+        println!("ORG DATA AFTER: {:?}",mem);
 
         let length = [mem[0],mem[1],mem[2],mem[3]];
 
         let length_of_output = u32::from_le_bytes(length);
-        // println!("length of output {:?}",length_of_output);
-        let des = borsh::from_slice::<(HashMap<String,Vec<u8>>,HashMap<String,Vec<u8>>,Transaction)>(&mem[4..414]).expect("can't deser");
+        println!("length of output {:?}",length_of_output);
+        let des = borsh::from_slice::<(HashMap<String,Vec<u8>>,HashMap<String,Vec<u8>>,Transaction)>(&mem[4..length_of_output as usize +4]).expect("can't deser");
         println!("{:?}",des);
 
         // println!("{:?}",des);
@@ -151,6 +152,10 @@ pub fn test_everything() {
 
 
 // }
+
+fn construct_mem_data() -> Vec<u8> {
+    vec![]
+}
 
 fn org_construct_data() ->  Vec<u8> {
     let utxo = UtxoMeta{ txid: String::from("a"), vout: 2 };

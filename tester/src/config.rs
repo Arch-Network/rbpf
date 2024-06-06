@@ -171,7 +171,7 @@ pub fn create_program_runtime_environment_v1(
     //     SyscallAllocFree::vm,
     // )?;
 
-    result.register_function_hashed( *b"sol_alloc_free_",SyscallAllocFree::vm)?;
+    // result.register_function_hashed( *b"sol_alloc_free_",SyscallAllocFree::vm)?;
 
     // // Alt_bn128
     // register_feature_gated_function!(
@@ -470,39 +470,39 @@ declare_builtin_function!(
 );
 
 
-declare_builtin_function!(
-    /// Dynamic memory allocation syscall called when the SBF program calls
-    /// `sol_alloc_free_()`.  The allocator is expected to allocate/free
-    /// from/to a given chunk of memory and enforce size restrictions.  The
-    /// memory chunk is given to the allocator during allocator creation and
-    /// information about that memory (start address and size) is passed
-    /// to the VM to use for enforcement.
-    SyscallAllocFree,
-    fn rust(
-        invoke_context: &mut TestContextObject,
-        size: u64,
-        free_addr: u64,
-        _arg3: u64,
-        _arg4: u64,
-        _arg5: u64,
-        _memory_mapping: &mut MemoryMapping,
-    ) -> Result<u64, Error> {
-        // TODO : HARDCODED to 8, change it 
-        let Ok(layout) = Layout::from_size_align(size as usize, 8) else {
-            return Ok(0);
-        };
-        let allocator = &mut invoke_context.syscall_context;
-        if free_addr == 0 {
-            match allocator.alloc(layout) {
-                Ok(addr) => Ok(addr),
-                Err(_) => Ok(0),
-            }
-        } else {
-            // Unimplemented
-            Ok(0)
-        }
-    }
-);
+// declare_builtin_function!(
+//     /// Dynamic memory allocation syscall called when the SBF program calls
+//     /// `sol_alloc_free_()`.  The allocator is expected to allocate/free
+//     /// from/to a given chunk of memory and enforce size restrictions.  The
+//     /// memory chunk is given to the allocator during allocator creation and
+//     /// information about that memory (start address and size) is passed
+//     /// to the VM to use for enforcement.
+//     SyscallAllocFree,
+//     fn rust(
+//         invoke_context: &mut TestContextObject,
+//         size: u64,
+//         free_addr: u64,
+//         _arg3: u64,
+//         _arg4: u64,
+//         _arg5: u64,
+//         _memory_mapping: &mut MemoryMapping,
+//     ) -> Result<u64, Error> {
+//         // TODO : HARDCODED to 8, change it 
+//         let Ok(layout) = Layout::from_size_align(size as usize, 8) else {
+//             return Ok(0);
+//         };
+//         let allocator = &mut invoke_context.syscall_context;
+//         if free_addr == 0 {
+//             match allocator.alloc(layout) {
+//                 Ok(addr) => Ok(addr),
+//                 Err(_) => Ok(0),
+//             }
+//         } else {
+//             // Unimplemented
+//             Ok(0)
+//         }
+//     }
+// );
 
 
 

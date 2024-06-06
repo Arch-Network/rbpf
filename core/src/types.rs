@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap};
 
-use borsh::{BorshDeserialize,  BorshSerialize};
+use borsh::{BorshDeserialize, BorshSerialize};
 
 #[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug)]
 pub struct UtxoInfo {
@@ -20,6 +20,10 @@ pub struct Pubkey(pub Vec<u8>);
 impl Pubkey {
     pub fn from_array(arr: [u8; 32]) -> Self {
         Pubkey(arr.to_vec())
+    }
+
+    pub fn to_array(&self) -> &[u8] {
+        &self.0
     }
 }
 
@@ -88,9 +92,9 @@ pub struct Output {
 
 #[derive(Clone, Debug, Eq, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct VmInput {
-    pub instruction : Instruction,
-    pub authority : HashMap<String, Vec<u8>>,
-    pub data : HashMap<String, Vec<u8>>,
+    pub instruction: Instruction,
+    pub authority: HashMap<String, Vec<u8>>,
+    pub data: HashMap<String, Vec<u8>>,
 }
 
 // TODO: Delete
