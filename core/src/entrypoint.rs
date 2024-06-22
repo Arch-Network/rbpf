@@ -45,7 +45,7 @@ pub fn deserialize(input : *mut u8) -> (Pubkey, Vec<UtxoInfo>, Vec<u8>){
     let size = unsafe { *(input as *mut u32)};
     let data_slice = unsafe { std::slice::from_raw_parts_mut(input.add(4), size as usize)};
 
-    let (instruction, authorities,data): (Instruction,HashMap<String, Vec<u8>>,HashMap<String, Vec<u8>> ) = from_slice(&data_slice).expect("unable to deserialise input to entrypoint function");
+    let (instruction, utxo_authorities,utxo_data): (Instruction,HashMap<String, Vec<u8>>,HashMap<String, Vec<u8>> ) = from_slice(&data_slice).expect("unable to deserialise input to entrypoint function");
 
             let program_id: Pubkey = instruction.program_id;
 
@@ -58,13 +58,13 @@ pub fn deserialize(input : *mut u8) -> (Pubkey, Vec<UtxoInfo>, Vec<u8>){
                         txid: utxo.txid.clone(),
                         vout: utxo.vout,
                         authority: RefCell::new(Pubkey(
-                            authorities
+                            utxo_authorities
                                 .get(&utxo.id())
                                 .expect("this utxo does not exist in auth")
                                 .to_vec(),
                         )),
                         data: RefCell::new(
-                            data.get(&utxo.id())
+                            utxo_data.get(&utxo.id())
                                 .expect("this utxo does not exist in data")
                                 .to_vec(),
                         ),
@@ -72,8 +72,6 @@ pub fn deserialize(input : *mut u8) -> (Pubkey, Vec<UtxoInfo>, Vec<u8>){
                 })
                 .collect::<Vec<UtxoInfo>>();
             let instruction_data: Vec<u8> = instruction.data;
-                // TODO: REMOVE
-            println!("data is {:?}",(&program_id, &utxos, &instruction_data));
 
             (program_id, utxos, instruction_data)
 
@@ -90,13 +88,13 @@ macro_rules! entrypoint {
                 unsafe { $crate::entrypoint::deserialize(input) };
             match $process_instruction(program_id, &utxos, instruction_data) {
                 Ok(tx_hex) => {
-                    let mut new_authorities: HashMap<String, Vec<u8>> = HashMap::new();
-                    let mut new_data: HashMap<String, Vec<u8>> = HashMap::new();
-                    utxos.iter().for_each(|utxo| {
-                        new_authorities.insert(utxo.id(), utxo.authority.clone().into_inner().0);
-                        new_data.insert(utxo.id(), utxo.data.clone().into_inner());
-                    });
-                   let mut serialised_output = borsh::to_vec(&(new_authorities, new_data, tx_hex)).unwrap();
+                    // let mut new_authorities: HashMap<String, Vec<u8>> = HashMap::new();
+                    // let mut new_data: HashMap<String, Vec<u8>> = HashMap::new();
+                    // utxos.iter().for_each(|utxo| {
+                    //     new_authorities.insert(utxo.id(), utxo.authority.clone().into_inner().0);
+                    //     new_data.insert(utxo.id(), utxo.data.clone().into_inner());
+                    // });
+                   let mut serialised_output = borsh::to_vec(&(utxos,tx_hex)).unwrap();
                     let output_len = serialised_output.len();
                     unsafe {*(input as *mut u32) = output_len as u32;}
 

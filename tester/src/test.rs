@@ -50,16 +50,6 @@ pub fn test_everything() {
         // provides context about runtime (ex: number of instruction left)
         let mut context_object: TestContextObject = TestContextObject::new(15000000000);
 
-        // The Murmur3 hash value (used by RBPF) of the string "entrypoint"
-        // const ENTRYPOINT_KEY: u32 = 0x71E3CF81;
-
-        // let function = executable.get_loader()
-        //         .get_function_registry()
-        //         .lookup_by_key(ENTRYPOINT_KEY)
-        //         .map(|(_name, function)| function).expect("Should be present");
-
-        // println!("func {:?}",function);
-
         let executable_registry = executable.get_function_registry();
         let loader_registry = executable.get_loader().get_function_registry();
 

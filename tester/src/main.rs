@@ -5,7 +5,7 @@ pub mod test;
 mod ebpffile;
 use test::test_everything;
 pub mod config;
-
+mod cpi;
 
 fn main() {
     // println!("Hey");

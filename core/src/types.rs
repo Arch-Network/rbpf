@@ -15,7 +15,7 @@ impl UtxoInfo {
     }
 }
 
-#[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone, Eq)]
+#[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone, Eq, Default)]
 pub struct Pubkey(pub Vec<u8>);
 impl Pubkey {
     pub fn from_array(arr: [u8; 32]) -> Self {
