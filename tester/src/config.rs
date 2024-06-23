@@ -6,9 +6,9 @@ use crate::processor::InvokeContext;
 
 type Error = Box<dyn std::error::Error>;
 
-pub fn create_program_runtime_environment_v1(
+pub fn create_program_runtime_environment_v1<'a>(
     reject_deployment_of_broken_elfs: bool,
-) -> Result<BuiltinProgram<InvokeContext>, Error> {
+) -> Result<BuiltinProgram<InvokeContext<'a>>, Error> {
     // let enable_alt_bn128_syscall = feature_set.is_active(&enable_alt_bn128_syscall::id());
     // let enable_alt_bn128_compression_syscall =
         // feature_set.is_active(&enable_alt_bn128_compression_syscall::id());
@@ -493,7 +493,7 @@ declare_builtin_function!(
         let Ok(layout) = Layout::from_size_align(size as usize, 8) else {
             return Ok(0);
         };
-        let allocator = &mut invoke_context.syscall_context;
+        let allocator = &mut invoke_context.get_syscall_context_mut()?.allocator;
         if free_addr == 0 {
             match allocator.alloc(layout) {
                 Ok(addr) => Ok(addr),

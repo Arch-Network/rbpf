@@ -7,7 +7,7 @@ use solana_rbpf::{
     aligned_memory::AlignedMemory, ebpf, elf::Executable, memory_region::{MemoryMapping, MemoryRegion}, program::{BuiltinProgram, FunctionRegistry}, verifier::RequisiteVerifier, vm::{Config, EbpfVm, TestContextObject}
 };
 use core_types::types::*;
-use crate::{config::create_program_runtime_environment_v1, processor::{Message, MessageProcessor}};
+use crate::{config::create_program_runtime_environment_v1, processor::{Message, MessageProcessor, TransactionContext}};
 
 pub fn test_v2() {
 
@@ -23,17 +23,19 @@ pub fn test_v2() {
     let message = Message {
         signers: vec![],
         instructions: vec![Instruction {
-            program_id : pubkey_for_program,
+            program_id : pubkey_for_program.clone(),
             utxos : vec![UtxoMeta{ txid: String::from("1"), vout: 0},UtxoMeta{ txid: String::from("1"), vout: 2} ],
             data: vec![1,2,3,4,5]
         }]
     };
 
+    println!("pubkey is : {:?}", pubkey_for_program.0.clone());
+    println!("Digest for pubkey is {:?}", digest(digest(pubkey_for_program.0.clone())));
     let mut programs = HashMap::new();
-    programs.insert(digest(digest(pubkey_for_program.0)), elf);
+    programs.insert(digest(digest(pubkey_for_program.0.clone())), elf);
 
     let mut authority = HashMap::new();
-    authority.insert(utxo1.id(), pubkey_for_program.0);
+    authority.insert(utxo1.id(), pubkey_for_program.0.clone());
     authority.insert(utxo2.id(), pubkey_for_program.0);
 
     let mut data= HashMap::new();
@@ -41,108 +43,114 @@ pub fn test_v2() {
     data.insert(utxo1.id(), vec![]);
 
     let log_collector = None;
-    let message_processor = MessageProcessor::process_message(message, log_collector, programs, 4, 20, authority, data);
+
+    let mut transaction_context = TransactionContext::new(4,80,authority,data);
+    let message_processor = MessageProcessor::process_message(message, &mut transaction_context,log_collector, programs);
+
+    println!("Post processing:\n Authorities : {:?}\n Data: : {:?}\n", transaction_context.get_authorities(), transaction_context.get_data());
+
+
 }
 
-pub fn test_everything() {
-    // let mut file = File::open("src/ebpf.so").unwrap();
-    let mut file = File::open("../target/sbf-solana-solana/release/ebpf.so").unwrap();
+// pub fn test_everything() {
+//     // let mut file = File::open("src/ebpf.so").unwrap();
+//     let mut file = File::open("../target/sbf-solana-solana/release/ebpf.so").unwrap();
 
-    // let mut file = File::open("src/solana_test.so").unwrap();
-    let mut elf = Vec::new();
-    file.read_to_end(&mut elf).unwrap();
+//     // let mut file = File::open("src/solana_test.so").unwrap();
+//     let mut elf = Vec::new();
+//     file.read_to_end(&mut elf).unwrap();
 
-    // println!("Progrma bytes {:?}",elf);
+//     // println!("Progrma bytes {:?}",elf);
 
-    let config = Config {
-        max_call_depth: 20,
-        stack_frame_size: 4096,
-        enable_address_translation: true, // To be deactivated once we have BTF inference and verification
-        enable_stack_frame_gaps: false,
-        instruction_meter_checkpoint_distance: 100000000,
-        enable_instruction_meter: false,
-        enable_instruction_tracing: true,
-        enable_symbol_and_section_labels: false,
-        reject_broken_elfs: false,
-        noop_instruction_rate: 256,
-        sanitize_user_provided_values: true,
-        external_internal_function_hash_collision: true,
-        reject_callx_r10: true,
-        enable_sbpf_v1: true,
-        enable_sbpf_v2: true,
-        optimize_rodata: true,
-        new_elf_parser: true, // causes unknown Symbol error
-        aligned_memory_mapping: true,
-        // Warning, do not use `Config::default()` so that configuration here is explicit.
-    };
+//     let config = Config {
+//         max_call_depth: 20,
+//         stack_frame_size: 4096,
+//         enable_address_translation: true, // To be deactivated once we have BTF inference and verification
+//         enable_stack_frame_gaps: false,
+//         instruction_meter_checkpoint_distance: 100000000,
+//         enable_instruction_meter: false,
+//         enable_instruction_tracing: true,
+//         enable_symbol_and_section_labels: false,
+//         reject_broken_elfs: false,
+//         noop_instruction_rate: 256,
+//         sanitize_user_provided_values: true,
+//         external_internal_function_hash_collision: true,
+//         reject_callx_r10: true,
+//         enable_sbpf_v1: true,
+//         enable_sbpf_v2: true,
+//         optimize_rodata: true,
+//         new_elf_parser: true, // causes unknown Symbol error
+//         aligned_memory_mapping: true,
+//         // Warning, do not use `Config::default()` so that configuration here is explicit.
+//     };
 
-    let mut result = create_program_runtime_environment_v1(false);
-    // let mut result = FunctionRegistry::<BuiltinFunction<InvokeContext>>::default();
-
-    
-    let executable =
-        Executable::<TestContextObject>::from_elf(&elf, Arc::new(result.unwrap())).unwrap();
-    let program = executable.get_text_bytes().1;
-        // provides context about runtime (ex: number of instruction left)
-        let mut context_object: TestContextObject = TestContextObject::new(15000000000);
-
-        let executable_registry = executable.get_function_registry();
-        let loader_registry = executable.get_loader().get_function_registry();
-
-        // println!("executable {:?}\n\nloader {:?}\n\n", executable_registry,loader_registry);
-
-        // verifier for bpf
-        executable.verify::<RequisiteVerifier>().unwrap();
-    
-        let sbpf_version = executable.get_sbpf_version();
-        // println!(" version {:?}",sbpf_version);
-    
-        let mut stack =
-            AlignedMemory::<{ ebpf::HOST_ALIGN }>::zero_filled(executable.get_config().stack_size());
-        let stack_len = stack.len();
-    
-        let mut heap = AlignedMemory::<{ ebpf::HOST_ALIGN }>::zero_filled(120 * 1024);
-    
-        let mut mem = org_construct_data();
-        mem.extend_from_slice(&[0u8;1024]);
-        let mem_region = MemoryRegion::new_writable(&mut mem, ebpf::MM_INPUT_START);
-    
-        let regions: Vec<MemoryRegion> = vec![
-            executable.get_ro_region(),
-            MemoryRegion::new_writable_gapped(stack.as_slice_mut(), ebpf::MM_STACK_START, 0),
-            MemoryRegion::new_writable(heap.as_slice_mut(), ebpf::MM_HEAP_START),
-            mem_region,
-        ];
-    // println!("Memory Region");
-        let memory_mapping =
-            MemoryMapping::new(regions, executable.get_config(), sbpf_version).unwrap();
-    
-        let mut vm: EbpfVm<TestContextObject> = EbpfVm::new(
-            executable.get_loader().clone(),
-            sbpf_version,
-            &mut context_object,
-            memory_mapping,
-            stack_len,
-        );
-        // EbpfVm::invoke_function(&mut vm, function);
-    
-        let (instruction_count, result) = vm.execute_program(&executable, true);
-        println!("result is {:?}", result);
-        // println!("{:?}",mem);
-
-        let length = [mem[0],mem[1],mem[2],mem[3]];
-
-        let length_of_output = u32::from_le_bytes(length);
-        // println!("length of output {:?}",length_of_output);
-        let des = borsh::from_slice::<(HashMap<String,Vec<u8>>,HashMap<String,Vec<u8>>,Transaction)>(&mem[4..414]).expect("can't deser");
-        println!("{:?}",des);
-
-        // println!("{:?}",des);
-
-
+//     let mut result = create_program_runtime_environment_v1(false);
+//     // let mut result = FunctionRegistry::<BuiltinFunction<InvokeContext>>::default();
 
     
-}
+//     let executable =
+//         Executable::<TestContextObject>::from_elf(&elf, Arc::new(result.unwrap())).unwrap();
+//     let program = executable.get_text_bytes().1;
+//         // provides context about runtime (ex: number of instruction left)
+//         let mut context_object: TestContextObject = TestContextObject::new(15000000000);
+
+//         let executable_registry = executable.get_function_registry();
+//         let loader_registry = executable.get_loader().get_function_registry();
+
+//         // println!("executable {:?}\n\nloader {:?}\n\n", executable_registry,loader_registry);
+
+//         // verifier for bpf
+//         executable.verify::<RequisiteVerifier>().unwrap();
+    
+//         let sbpf_version = executable.get_sbpf_version();
+//         // println!(" version {:?}",sbpf_version);
+    
+//         let mut stack =
+//             AlignedMemory::<{ ebpf::HOST_ALIGN }>::zero_filled(executable.get_config().stack_size());
+//         let stack_len = stack.len();
+    
+//         let mut heap = AlignedMemory::<{ ebpf::HOST_ALIGN }>::zero_filled(120 * 1024);
+    
+//         let mut mem = org_construct_data();
+//         mem.extend_from_slice(&[0u8;1024]);
+//         let mem_region = MemoryRegion::new_writable(&mut mem, ebpf::MM_INPUT_START);
+    
+//         let regions: Vec<MemoryRegion> = vec![
+//             executable.get_ro_region(),
+//             MemoryRegion::new_writable_gapped(stack.as_slice_mut(), ebpf::MM_STACK_START, 0),
+//             MemoryRegion::new_writable(heap.as_slice_mut(), ebpf::MM_HEAP_START),
+//             mem_region,
+//         ];
+//     // println!("Memory Region");
+//         let memory_mapping =
+//             MemoryMapping::new(regions, executable.get_config(), sbpf_version).unwrap();
+    
+//         let mut vm: EbpfVm<TestContextObject> = EbpfVm::new(
+//             executable.get_loader().clone(),
+//             sbpf_version,
+//             &mut context_object,
+//             memory_mapping,
+//             stack_len,
+//         );
+//         // EbpfVm::invoke_function(&mut vm, function);
+    
+//         let (instruction_count, result) = vm.execute_program(&executable, true);
+//         println!("result is {:?}", result);
+//         // println!("{:?}",mem);
+
+//         let length = [mem[0],mem[1],mem[2],mem[3]];
+
+//         let length_of_output = u32::from_le_bytes(length);
+//         // println!("length of output {:?}",length_of_output);
+//         let des = borsh::from_slice::<(HashMap<String,Vec<u8>>,HashMap<String,Vec<u8>>,Transaction)>(&mem[4..414]).expect("can't deser");
+//         println!("{:?}",des);
+
+//         // println!("{:?}",des);
+
+
+
+    
+// }
 
 // fn generate_some_data()  {
 //     let txin = TxIn {

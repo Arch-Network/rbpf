@@ -14,17 +14,14 @@ pub struct MessageProcessor {}
 impl MessageProcessor {
     pub fn process_message(
         message : Message,
+        transaction_context : &mut TransactionContext,
         log_collector: Option<Rc<RefCell<LogCollector>>>,
         programs : HashMap<String,Vec<u8>>,
-        instruction_stack_capactiy : usize,
-        instruction_trace_capactiy : usize,
-        authority : HashMap<String,Vec<u8>>,
-        data : HashMap<String,Vec<u8>>,
     ) {
 
         let traces = vec![];
         let mut invoke_context = InvokeContext::new(
-            TransactionContext::new(instruction_stack_capactiy,instruction_trace_capactiy,authority,data),
+            transaction_context,
             log_collector,
             programs,
             RefCell::new(MAX_COMPUTE_VALUE),
@@ -79,15 +76,16 @@ pub struct SyscallContext {
     pub trace_log: Vec<[u64; 12]>,
 }
 
-pub struct InvokeContext {
-    transaction_context : TransactionContext,
+pub struct InvokeContext<'a> {
+    transaction_context : &'a mut TransactionContext,
     log_collector: Option<Rc<RefCell<LogCollector>>>,
     programs : HashMap<String,Vec<u8>>,
     compute_meter: RefCell<u64>,
     traces: Vec<[u64; 12]>,
+    pub syscall_context: Vec<Option<SyscallContext>>,
 }
 
-impl ContextObject for InvokeContext {
+impl<'a> ContextObject for InvokeContext<'a> {
     fn trace(&mut self, state: [u64; 12]) {
         self.traces.push(state);
     }
@@ -104,9 +102,9 @@ impl ContextObject for InvokeContext {
     }
 }
 
-impl InvokeContext {
+impl<'a> InvokeContext<'a> {
     pub fn new(
-        transaction_context : TransactionContext,
+        transaction_context : &'a mut TransactionContext,
         log_collector: Option<Rc<RefCell<LogCollector>>>,
         programs : HashMap<String,Vec<u8>>,
         compute_meter: RefCell<u64>,
@@ -117,7 +115,8 @@ impl InvokeContext {
             log_collector,
             programs,
             compute_meter,
-            traces
+            traces,
+            syscall_context: Vec::new(),
         }
     }
     pub fn process_instruction(
@@ -132,6 +131,13 @@ impl InvokeContext {
             // MUST pop if and only if `push` succeeded, independent of `result`.
             // Thus, the `.and()` instead of an `.and_then()`.
             .and(self.pop())
+    }
+
+    pub fn get_syscall_context_mut(&mut self) -> Result<&mut SyscallContext, String> {
+        self.syscall_context
+            .last_mut()
+            .and_then(|syscall_context| syscall_context.as_mut())
+            .ok_or("call Depth error".into())
     }
 
     pub fn pop(&mut self) -> Result<(), String> {
@@ -158,7 +164,7 @@ impl InvokeContext {
         // Part One: Transaction Procesing
         
         // elf file
-        let elf = self.programs.get(&digest(current_ins_context.instruction.program_id.0)).expect("can't find the key associated with the program account");
+        let elf = self.programs.get(&digest(digest(current_ins_context.instruction.program_id.0.clone()))).expect("can't find the key associated with the program account");
 
         let mut result = create_program_runtime_environment_v1(false);
 
@@ -252,6 +258,14 @@ impl TransactionContext {
                 authorities,
                 data
             }
+    }
+
+    pub fn get_authorities(&self ) -> &HashMap<String,Vec<u8>> {
+        &self.authorities
+    }
+
+    pub fn get_data(&self ) -> &HashMap<String,Vec<u8>> {
+        &self.data
     }
 
     pub fn push(&mut self) -> Result<(), String> {
