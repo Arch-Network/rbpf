@@ -1,11 +1,12 @@
 use core::fmt;
-use std::{alloc::Layout, cell::RefCell, collections::HashMap, env::current_exe, rc::Rc, sync::Arc};
+use std::{alloc::Layout, cell::RefCell, collections::HashMap, env::current_exe, fs::File, io::Read, rc::Rc, sync::Arc};
 
 use core_types::types::{Instruction, Pubkey, Transaction, UtxoInfo, UtxoMeta};
 use sha256::digest;
-use solana_rbpf::{aligned_memory::AlignedMemory, ebpf::{self, MM_HEAP_START}, elf::Executable, memory_region::{MemoryMapping, MemoryRegion}, verifier::RequisiteVerifier, vm::{ContextObject, EbpfVm}};
+use solana_program::stake::config::Config;
+use solana_rbpf::{aligned_memory::AlignedMemory, ebpf::{self, MM_HEAP_START}, elf::Executable, memory_region::{MemoryMapping, MemoryRegion}, program::{BuiltinFunction, BuiltinProgram, FunctionRegistry}, verifier::RequisiteVerifier, vm::{ContextObject, EbpfVm, TestContextObject}};
 
-use crate::config::create_program_runtime_environment_v1;
+use crate::{config::create_program_runtime_environment_v1, test::org_construct_data};
 
 pub const MAX_COMPUTE_VALUE:u64 =  15000000000;
 
@@ -159,23 +160,20 @@ impl<'a> InvokeContext<'a> {
     fn process_executable_chain(
         &mut self,
     ) -> Result<(), String> {
+
+        use solana_rbpf::vm::Config;
         let mut mem = serealise(&self.transaction_context);
         let current_ins_context = self.transaction_context.get_current_instruction_context();
         // Part One: Transaction Procesing
-        
+
         // elf file
         let elf = self.programs.get(&digest(digest(current_ins_context.instruction.program_id.0.clone()))).expect("can't find the key associated with the program account");
 
         let mut result = create_program_runtime_environment_v1(false);
 
         let executable =
-        Executable::<InvokeContext>::from_elf(&elf, Arc::new(result.unwrap())).unwrap();
-
-    let program = executable.get_text_bytes().1;
-    let executable_registry = executable.get_function_registry();
-        let loader_registry = executable.get_loader().get_function_registry();
-
-        // println!("executable {:?}\n\nloader {:?}\n\n", executable_registry,loader_registry);
+        Executable::<TestContextObject>::from_elf(&elf, Arc::new(result.unwrap())).unwrap();
+        let mut context = TestContextObject::new(150000000000);
 
         // verifier for bpf
         executable.verify::<RequisiteVerifier>().unwrap();
@@ -203,10 +201,10 @@ impl<'a> InvokeContext<'a> {
         let memory_mapping =
             MemoryMapping::new(regions, executable.get_config(), sbpf_version).unwrap();
     
-        let mut vm: EbpfVm<InvokeContext> = EbpfVm::new(
+        let mut vm: EbpfVm<TestContextObject> = EbpfVm::new(
             executable.get_loader().clone(),
             sbpf_version,
-            self,
+            &mut context,
             memory_mapping,
             stack_len,
         );
@@ -220,6 +218,7 @@ impl<'a> InvokeContext<'a> {
         // TODO: update authorities in main database
 
         Ok(())
+
     }
 
 
@@ -234,7 +233,6 @@ pub struct Message {
 
 #[derive(Debug, Clone)]
 pub struct TransactionContext {
-    // instructions: Vec<Instruction>,
     instruction_stack_capacity: usize,
     instruction_trace_capacity: usize,
     instruction_stack: Vec<usize>,
@@ -379,7 +377,7 @@ fn serealise(transaction_context : &TransactionContext) -> Vec<u8>{
 
     let instruction = &current_context.instruction;
     let mut serialised_data = borsh::to_vec(&(instruction,utxo_authorities,utxo_data)).unwrap();
-    let mut data_len = serialised_data.len() as u32;
+    let data_len = serialised_data.len() as u32;
     let mut data_len = data_len.to_le_bytes().to_vec();
     
     data_len.append(&mut serialised_data);
@@ -413,7 +411,8 @@ fn deserialise(transaction_context : &mut TransactionContext, mem : Vec<u8>) -> 
        }
     }
 
-    let a = [32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 49, 0, 0, 0, 0, 1, 0, 0, 0, 49, 2, 0, 0, 0, 5, 0, 0, 0, 1, 2, 3, 4, 5, 2, 0, 0, 0, 3, 0, 0, 0, 49, 58, 48, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 49, 58, 50, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 49, 58, 48, 0, 0, 0, 0, ];
+    // let a = [32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 49, 0, 0, 0, 0, 1, 0, 0, 0, 49, 2, 0, 0, 0, 5, 0, 0, 0, 1, 2, 3, 4, 5, 2, 0, 0, 0, 3, 0, 0, 0, 49, 58, 48, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 49, 58, 50, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 49, 58, 48, 0, 0, 0, 0, ];
+
     transaction
 
 }
