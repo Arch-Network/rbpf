@@ -1,12 +1,14 @@
 use std::{alloc::Layout, mem::{align_of, size_of}, slice::{self, from_raw_parts_mut}, str::from_utf8};
 
-use solana_rbpf::{declare_builtin_function, error::EbpfError, memory_region::{AccessType, MemoryMapping, MemoryRegion}, program::{BuiltinFunction, BuiltinProgram, FunctionRegistry}, vm::{Config, TestContextObject}};
+use solana_rbpf::{declare_builtin_function, error::EbpfError, memory_region::{AccessType, MemoryMapping, MemoryRegion}, program::{BuiltinFunction, BuiltinProgram, FunctionRegistry}, vm::{Config}};
+
+use crate::processor::InvokeContext;
 
 type Error = Box<dyn std::error::Error>;
 
 pub fn create_program_runtime_environment_v1(
     reject_deployment_of_broken_elfs: bool,
-) -> Result<BuiltinProgram<TestContextObject>, Error> {
+) -> Result<BuiltinProgram<InvokeContext>, Error> {
     // let enable_alt_bn128_syscall = feature_set.is_active(&enable_alt_bn128_syscall::id());
     // let enable_alt_bn128_compression_syscall =
         // feature_set.is_active(&enable_alt_bn128_compression_syscall::id());
@@ -47,7 +49,7 @@ pub fn create_program_runtime_environment_v1(
         aligned_memory_mapping: true,
         // Warning, do not use `Config::default()` so that configuration here is explicit.
     };
-    let mut result = FunctionRegistry::<BuiltinFunction<TestContextObject>>::default();
+    let mut result = FunctionRegistry::<BuiltinFunction<InvokeContext>>::default();
 
     // Abort
     result.register_function_hashed(*b"abort", SyscallAbort::vm)?;
@@ -346,7 +348,7 @@ declare_builtin_function!(
     /// Causes the SBF program to be halted immediately
     SyscallAbort,
     fn rust(
-        _invoke_context: &mut TestContextObject,
+        _invoke_context: &mut InvokeContext,
         _arg1: u64,
         _arg2: u64,
         _arg3: u64,
@@ -361,7 +363,7 @@ declare_builtin_function!(
     /// Log current compute consumption
     SyscallLogBpfComputeUnits,
     fn rust(
-        invoke_context: &mut TestContextObject,
+        invoke_context: &mut InvokeContext,
         _arg1: u64,
         _arg2: u64,
         _arg3: u64,
@@ -384,7 +386,7 @@ declare_builtin_function!(
     /// Set return data
     SyscallSetReturnData,
     fn rust(
-        invoke_context: &mut TestContextObject,
+        invoke_context: &mut InvokeContext,
         addr: u64,
         len: u64,
         _arg3: u64,
@@ -426,7 +428,7 @@ declare_builtin_function!(
     /// Causes the SBF program to be halted immediately
     SyscallPanic,
     fn rust(
-        invoke_context: &mut TestContextObject,
+        invoke_context: &mut InvokeContext,
         file: u64,
         len: u64,
         line: u64,
@@ -450,7 +452,7 @@ declare_builtin_function!(
     /// Log a user's info message
     SyscallLog,
     fn rust(
-        invoke_context: &mut TestContextObject,
+        invoke_context: &mut InvokeContext,
         addr: u64,
         len: u64,
         _arg3: u64,
@@ -479,7 +481,7 @@ declare_builtin_function!(
     /// to the VM to use for enforcement.
     SyscallAllocFree,
     fn rust(
-        invoke_context: &mut TestContextObject,
+        invoke_context: &mut InvokeContext,
         size: u64,
         free_addr: u64,
         _arg3: u64,
@@ -507,7 +509,7 @@ declare_builtin_function!(
 
 
 
-// fn mem_op_consume(invoke_context: &mut TestContextObject, n: u64) -> Result<(), Error> {
+// fn mem_op_consume(invoke_context: &mut InvokeContext, n: u64) -> Result<(), Error> {
 //     let compute_budget = invoke_context.get_compute_budget();
 //     let cost = compute_budget.mem_op_base_cost.max(
 //         n.checked_div(compute_budget.cpi_bytes_per_unit)
@@ -520,7 +522,7 @@ declare_builtin_function!(
     /// memcpy
     SyscallMemcpy,
     fn rust(
-        invoke_context: &mut TestContextObject,
+        invoke_context: &mut InvokeContext,
         dst_addr: u64,
         src_addr: u64,
         n: u64,
@@ -543,7 +545,7 @@ declare_builtin_function!(
     /// memmove
     SyscallMemmove,
     fn rust(
-        invoke_context: &mut TestContextObject,
+        invoke_context: &mut InvokeContext,
         dst_addr: u64,
         src_addr: u64,
         n: u64,
@@ -561,7 +563,7 @@ declare_builtin_function!(
     /// memcmp
     SyscallMemcmp,
     fn rust(
-        invoke_context: &mut TestContextObject,
+        invoke_context: &mut InvokeContext,
         s1_addr: u64,
         s2_addr: u64,
         n: u64,
@@ -614,7 +616,7 @@ declare_builtin_function!(
     /// memset
     SyscallMemset,
     fn rust(
-        invoke_context: &mut TestContextObject,
+        invoke_context: &mut InvokeContext,
         dst_addr: u64,
         c: u64,
         n: u64,
@@ -654,7 +656,7 @@ macro_rules! register_feature_gated_function {
 }
 
 fn memmove(
-    invoke_context: &mut TestContextObject,
+    invoke_context: &mut InvokeContext,
     dst_addr: u64,
     src_addr: u64,
     n: u64,

@@ -1,12 +1,48 @@
 use std::{collections::HashMap, fs::File, io::Read, str::from_utf8, string, sync::Arc};
 use borsh::try_from_slice_with_schema;
 use core_types::types::*;
+use sha256::digest;
 use solana_program::address_lookup_table::instruction;
 use solana_rbpf::{
     aligned_memory::AlignedMemory, ebpf, elf::Executable, memory_region::{MemoryMapping, MemoryRegion}, program::{BuiltinProgram, FunctionRegistry}, verifier::RequisiteVerifier, vm::{Config, EbpfVm, TestContextObject}
 };
 use core_types::types::*;
-use crate::config::create_program_runtime_environment_v1;
+use crate::{config::create_program_runtime_environment_v1, processor::{Message, MessageProcessor}};
+
+pub fn test_v2() {
+
+    let mut file = File::open("../target/sbf-solana-solana/release/ebpf.so").unwrap();
+
+    // let mut file = File::open("src/solana_test.so").unwrap();
+    let mut elf = Vec::new();
+    file.read_to_end(&mut elf).unwrap();
+
+    let pubkey_for_program =  Pubkey(vec![0;32]);
+    let utxo1 = UtxoMeta{ txid: String::from("1"), vout: 0};
+    let utxo2 = UtxoMeta{ txid: String::from("1"), vout: 2};
+    let message = Message {
+        signers: vec![],
+        instructions: vec![Instruction {
+            program_id : pubkey_for_program,
+            utxos : vec![UtxoMeta{ txid: String::from("1"), vout: 0},UtxoMeta{ txid: String::from("1"), vout: 2} ],
+            data: vec![1,2,3,4,5]
+        }]
+    };
+
+    let mut programs = HashMap::new();
+    programs.insert(digest(digest(pubkey_for_program.0)), elf);
+
+    let mut authority = HashMap::new();
+    authority.insert(utxo1.id(), pubkey_for_program.0);
+    authority.insert(utxo2.id(), pubkey_for_program.0);
+
+    let mut data= HashMap::new();
+    data.insert(utxo1.id(), "Hello from inside the test".as_bytes().to_vec());
+    data.insert(utxo1.id(), vec![]);
+
+    let log_collector = None;
+    let message_processor = MessageProcessor::process_message(message, log_collector, programs, 4, 20, authority, data);
+}
 
 pub fn test_everything() {
     // let mut file = File::open("src/ebpf.so").unwrap();

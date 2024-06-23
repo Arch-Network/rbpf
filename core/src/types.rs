@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::{cell::RefCell, collections::HashMap, hash::Hash};
 
 use borsh::{BorshDeserialize,  BorshSerialize};
 
@@ -15,7 +15,7 @@ impl UtxoInfo {
     }
 }
 
-#[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone, Eq, Default)]
+#[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone, Eq, Default, Hash)]
 pub struct Pubkey(pub Vec<u8>);
 impl Pubkey {
     pub fn from_array(arr: [u8; 32]) -> Self {
@@ -46,7 +46,7 @@ pub struct TxOut {
     pub script_pubkey: Vec<u8>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, BorshSerialize, BorshDeserialize, Default, Hash)]
 pub struct Instruction {
     pub program_id: Pubkey,
     pub utxos: Vec<UtxoMeta>,

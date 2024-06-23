@@ -6,7 +6,7 @@ mod ebpffile;
 use test::test_everything;
 pub mod config;
 mod cpi;
-
+mod processor;
 fn main() {
     // println!("Hey");
 test_everything()
