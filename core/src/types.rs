@@ -46,7 +46,7 @@ pub struct TxOut {
     pub script_pubkey: Vec<u8>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, BorshSerialize, BorshDeserialize, Default, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, BorshSerialize, BorshDeserialize, Default)]
 pub struct Instruction {
     pub program_id: Pubkey,
     pub utxos: Vec<UtxoMeta>,

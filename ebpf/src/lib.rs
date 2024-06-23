@@ -60,14 +60,22 @@ pub fn process_instruction(
     accounts: &Vec<UtxoInfo>,
     ins: Vec<u8>,
 ) -> Result<Transaction, String> {
-    let instruction = TransferInstruction::try_from_slice(&ins).expect("should be able to deserialise");
     // let a = vec![0;1025];
-    let _ : Result<(), String> = match instruction {
-        TransferInstruction::CpiTransfer(args) => Ok(()),
-        TransferInstruction::ProgramTransfer(args) => {
-            Ok(())
-        }
-    };
+    // let _ : Result<(), String> = match instruction {
+    //     TransferInstruction::CpiTransfer(args) => Ok(()),
+    //     TransferInstruction::ProgramTransfer(args) => {
+    //         Ok(())
+    //     }
+    // };
+
+    // // change the data of first utxo to "Hello from inside the ebpf"
+    // *accounts[0].data.borrow_mut() = "Hello from inside the ebpf".as_bytes().to_vec();
+
+    // // change the data of first utxo to "EBPF Rocks"
+    // *accounts[1].data.borrow_mut() = "Hello from inside the ebpf".as_bytes().to_vec();
+
+    // change the authority of a utxo
+    // accounts[0].authority.borrow_mut().0 = vec![1;32];
 
     msg!("Hello from msg");
 
