@@ -12,8 +12,6 @@ use crate::{config::create_program_runtime_environment_v1, processor::{Message, 
 pub fn test_v2() {
 
     let mut file = File::open("../target/sbf-solana-solana/release/ebpf.so").unwrap();
-
-    // let mut file = File::open("src/solana_test.so").unwrap();
     let mut elf = Vec::new();
     file.read_to_end(&mut elf).unwrap();
 

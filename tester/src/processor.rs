@@ -211,6 +211,8 @@ impl<'a> InvokeContext<'a> {
             stack_len,
         );
 
+        let (instruction_count, result) = vm.execute_program(&executable, true);
+        println!("result is {:?}", result);
         // PART TWO : POST PROCESSING
         let transaction = deserialise(&mut self.transaction_context, mem);
 
@@ -390,7 +392,9 @@ fn deserialise(transaction_context : &mut TransactionContext, mem : Vec<u8>) -> 
 
     let length = [mem[0],mem[1],mem[2],mem[3]];
     let length_of_output = u32::from_le_bytes(length);
+    println!("length of output {length_of_output}");
 
+    println!("mem {:?}",mem);
     let (mut output_utxos, transaction)  = borsh::from_slice::<(Vec<UtxoInfo>,Transaction)>(&mem[4..(length_of_output + 4) as usize]).expect("can't deser");
 
     // update authorities after checking if program could update the authorities
@@ -408,9 +412,12 @@ fn deserialise(transaction_context : &mut TransactionContext, mem : Vec<u8>) -> 
             let _ =transaction_context.update_utxo_data(&output_utox_id,&output_utxo.data.get_mut());
        }
     }
+
+    let a = [32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 49, 0, 0, 0, 0, 1, 0, 0, 0, 49, 2, 0, 0, 0, 5, 0, 0, 0, 1, 2, 3, 4, 5, 2, 0, 0, 0, 3, 0, 0, 0, 49, 58, 48, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 49, 58, 50, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 49, 58, 48, 0, 0, 0, 0, ];
     transaction
 
 }
+
 
 pub struct LogCollector {
     messages: Vec<String>,
