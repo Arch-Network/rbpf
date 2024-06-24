@@ -68,14 +68,14 @@ pub fn process_instruction(
     //     }
     // };
 
-    // // change the data of first utxo to "Hello from inside the ebpf"
-    // *accounts[0].data.borrow_mut() = "Hello from inside the ebpf".as_bytes().to_vec();
+    // change the data of first utxo to "Hello from inside the ebpf"
+    *accounts[0].data.borrow_mut() = "Hello from inside the ebpf".as_bytes().to_vec();
 
-    // // change the data of first utxo to "EBPF Rocks"
-    // *accounts[1].data.borrow_mut() = "Hello from inside the ebpf".as_bytes().to_vec();
+    // change the data of first utxo to "EBPF Rocks"
+    *accounts[1].data.borrow_mut() = "EBPF Rocks".as_bytes().to_vec();
 
     // change the authority of a utxo
-    // accounts[0].authority.borrow_mut().0 = vec![1;32];
+    accounts[0].authority.borrow_mut().0 = vec![1;32];
 
     msg!("Hello from msg");
 

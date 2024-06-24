@@ -172,8 +172,7 @@ impl<'a> InvokeContext<'a> {
         let mut result = create_program_runtime_environment_v1(false);
 
         let executable =
-        Executable::<TestContextObject>::from_elf(&elf, Arc::new(result.unwrap())).unwrap();
-        let mut context = TestContextObject::new(150000000000);
+        Executable::<InvokeContext>::from_elf(&elf, Arc::new(result.unwrap())).unwrap();
 
         // verifier for bpf
         executable.verify::<RequisiteVerifier>().unwrap();
@@ -201,10 +200,10 @@ impl<'a> InvokeContext<'a> {
         let memory_mapping =
             MemoryMapping::new(regions, executable.get_config(), sbpf_version).unwrap();
     
-        let mut vm: EbpfVm<TestContextObject> = EbpfVm::new(
+        let mut vm: EbpfVm<InvokeContext> = EbpfVm::new(
             executable.get_loader().clone(),
             sbpf_version,
-            &mut context,
+            self,
             memory_mapping,
             stack_len,
         );
