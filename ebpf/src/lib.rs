@@ -4,6 +4,7 @@ entrypoint!(process_instruction);
 use borsh::de::BorshDeserialize;
 use core_types::{msg, types::{TransferInstruction}};
 use bitcoin::{absolute::LockTime,transaction::{Transaction as BtcTransaction, Version}};
+use solana_program::address_lookup_table::instruction;
 // use solana_program::entrypoint::ProgramResult;
 
 // use rand;
@@ -57,9 +58,9 @@ use bitcoin::{absolute::LockTime,transaction::{Transaction as BtcTransaction, Ve
 
 pub fn process_instruction(
     key: Pubkey,
-    accounts: &Vec<UtxoInfo>,
+    accounts: &[UtxoInfo],
     ins: Vec<u8>,
-) -> Result<Transaction, String> {
+) -> Result<Option<Transaction>, String> {
     // let a = vec![0;1025];
     // let _ : Result<(), String> = match instruction {
     //     TransferInstruction::CpiTransfer(args) => Ok(()),
@@ -77,6 +78,8 @@ pub fn process_instruction(
     // change the authority of a utxo
     accounts[0].authority.borrow_mut().0 = vec![1;32];
 
+    // invoke(key,instruction_data,utxos);
+
     msg!("Hello from msg");
 
     let txin = TxIn {
@@ -92,10 +95,10 @@ pub fn process_instruction(
         script_pubkey: [122u8;64].to_vec(),
     };
 
-    return Ok(Transaction {
+    return Ok(Some(Transaction {
         version: 1,
         input: vec![txin],
         output: vec![txout],
         lock_time: 15,
-    })
+    }))
 }

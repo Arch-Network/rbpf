@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::HashMap, hash::Hash};
 
 use borsh::{BorshDeserialize,  BorshSerialize};
 
-#[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug)]
+#[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone, Eq)]
 pub struct UtxoInfo {
     pub txid: String,
     pub vout: u32,
