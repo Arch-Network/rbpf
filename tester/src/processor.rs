@@ -1,21 +1,21 @@
 use core::fmt;
-use std::{alloc::Layout, cell::RefCell, collections::HashMap, env::current_exe, fs::File, io::Read, rc::Rc, sync::Arc};
-
+use std::{alloc::Layout, cell::RefCell, collections::HashMap, env::current_exe, fs::File, io::Read, mem, rc::Rc, sync::Arc};
+use borsh::{from_slice, BorshDeserialize, BorshSerialize};
 use core_types::types::{Instruction, Pubkey, Transaction, UtxoInfo, UtxoMeta};
 use sha256::digest;
-use solana_program::stake::config::Config;
+use solana_program::{address_lookup_table::instruction, stake::config::Config};
 use solana_rbpf::{aligned_memory::AlignedMemory, ebpf::{self, MM_HEAP_START}, elf::Executable, memory_region::{MemoryMapping, MemoryRegion}, program::{BuiltinFunction, BuiltinProgram, FunctionRegistry}, verifier::RequisiteVerifier, vm::{ContextObject, EbpfVm, TestContextObject}};
 
 use crate::{config::create_program_runtime_environment_v1, test::org_construct_data};
 
 pub const MAX_COMPUTE_VALUE:u64 =  15000000000;
 
-pub struct MessageProcessor {}
+pub struct MessageProcessor<> {}
 
-impl MessageProcessor {
+impl<'a> MessageProcessor {
     pub fn process_message(
-        message : Message,
-        transaction_context : &mut TransactionContext,
+        message : &'a TransactionMessage,
+        transaction_context : &'a mut TransactionContext<'a>,
         log_collector: Option<Rc<RefCell<LogCollector>>>,
         programs : HashMap<String,Vec<u8>>,
     ) {
@@ -30,8 +30,8 @@ impl MessageProcessor {
         );
 
         // this is processing of a transaction
-        for instruction in message.instructions {
-            invoke_context.process_instruction(instruction);
+        for instruction in message.instructions.iter() {
+            invoke_context.process_instruction(&instruction.utxos, instruction.program_id.clone(), &instruction.data);
         }
     }
 }
@@ -78,7 +78,7 @@ pub struct SyscallContext {
 }
 
 pub struct InvokeContext<'a> {
-    transaction_context : &'a mut TransactionContext,
+    transaction_context : &'a mut TransactionContext<'a>,
     log_collector: Option<Rc<RefCell<LogCollector>>>,
     programs : HashMap<String,Vec<u8>>,
     compute_meter: RefCell<u64>,
@@ -105,7 +105,7 @@ impl<'a> ContextObject for InvokeContext<'a> {
 
 impl<'a> InvokeContext<'a> {
     pub fn new(
-        transaction_context : &'a mut TransactionContext,
+        transaction_context : &'a mut TransactionContext<'a>,
         log_collector: Option<Rc<RefCell<LogCollector>>>,
         programs : HashMap<String,Vec<u8>>,
         compute_meter: RefCell<u64>,
@@ -122,11 +122,13 @@ impl<'a> InvokeContext<'a> {
     }
     pub fn process_instruction(
         &mut self,
-        instruction : Instruction
+        utxos : &'a [UtxoInfo],
+        program_id : Pubkey,
+        instruction_data : &'a [u8],
     ) -> Result<(), String> {
         self.transaction_context
             .get_next_instruction_context()
-            .configure(instruction);
+            .configure(utxos, program_id, instruction_data);
         self.push()?;
         self.process_executable_chain()
             // MUST pop if and only if `push` succeeded, independent of `result`.
@@ -167,7 +169,7 @@ impl<'a> InvokeContext<'a> {
         // Part One: Transaction Procesing
 
         // elf file
-        let elf = self.programs.get(&digest(digest(current_ins_context.instruction.program_id.0.clone()))).expect("can't find the key associated with the program account");
+        let elf = self.programs.get(&digest(digest(current_ins_context.program_id.0.clone()))).expect("can't find the key associated with the program account");
 
         let mut result = create_program_runtime_environment_v1(false);
 
@@ -220,7 +222,9 @@ impl<'a> InvokeContext<'a> {
 
     }
 
-
+    pub fn get_current_transaction_context(&mut self) -> &'a mut TransactionContext {
+        self.transaction_context
+    }
 }
 
 
@@ -230,17 +234,30 @@ pub struct Message {
     pub instructions: Vec<Instruction>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, BorshSerialize, BorshDeserialize, Default)]
+pub struct TransactionMessage {
+    pub signers: Vec<Pubkey>,
+    pub instructions: Vec<TransactionInstruction>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, BorshSerialize, BorshDeserialize, Default)]
+pub struct TransactionInstruction {
+    pub program_id: Pubkey,
+    pub utxos: Vec<UtxoInfo>,
+    pub data: Vec<u8>,
+}
+
 #[derive(Debug, Clone)]
-pub struct TransactionContext {
+pub struct TransactionContext<'a> {
     instruction_stack_capacity: usize,
     instruction_trace_capacity: usize,
     instruction_stack: Vec<usize>,
-    instruction_trace: Vec<InstructionContext>,
+    instruction_trace: Vec<InstructionContext<'a>>,
     authorities : HashMap<String,Vec<u8>>,
     data : HashMap<String,Vec<u8>>
 }
 
-impl TransactionContext {
+impl<'a> TransactionContext<'a> {
     pub fn new(
         // instructions : Vec<Instruction>,
         instruction_stack_capacity: usize,
@@ -259,12 +276,12 @@ impl TransactionContext {
             }
     }
 
-    pub fn get_authorities(&self ) -> &HashMap<String,Vec<u8>> {
-        &self.authorities
+    pub fn get_authorities(&mut self ) -> &mut HashMap<String,Vec<u8>> {
+        &mut self.authorities
     }
 
-    pub fn get_data(&self ) -> &HashMap<String,Vec<u8>> {
-        &self.data
+    pub fn get_data(&mut self ) -> &mut HashMap<String,Vec<u8>> {
+        &mut self.data
     }
 
     pub fn push(&mut self) -> Result<(), String> {
@@ -342,7 +359,7 @@ impl TransactionContext {
 
     pub fn get_next_instruction_context(
         &mut self,
-    ) -> &mut InstructionContext {
+    ) -> &mut InstructionContext<'a> {
         self.instruction_trace
             .last_mut().unwrap()
     }
@@ -355,44 +372,75 @@ impl TransactionContext {
 
         self.get_instruction_context_at_nesting_level(level)
     }
+
+    pub(crate) fn get_all_instruction(&'a mut self) -> &mut Vec<InstructionContext> {
+        &mut self.instruction_trace
+    }
        
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct InstructionContext {
+pub struct InstructionContext<'a> {
     nesting_level : usize,
-    instruction: Instruction
+    utxos : &'a [UtxoInfo],
+    program_id : Pubkey,
+    instruction_data : &'a [u8]
 }
 
-impl InstructionContext {
-    pub fn configure(&mut self, instruction : Instruction)  {
-        self.instruction = instruction
+impl<'a> InstructionContext<'a> {
+    pub fn configure(&mut self, utxos: &'a [UtxoInfo], program_id : Pubkey, instruction_data: &'a[u8])  {
+        self.utxos = utxos;
+        self.program_id = program_id;
+        self.instruction_data = instruction_data;
+    }
+
+    pub fn get_program_id(&self) -> &Pubkey {
+        &self.program_id
     }
 }
 
-fn serealise(transaction_context : &TransactionContext) -> Vec<u8>{
+// Serlialisation Format :
+// First the &[UtxoInfo]
+// then the len of elements
+// then len of borsh serealised data
+// then serialised data
+
+pub(crate) fn serealise(transaction_context : &TransactionContext) -> Vec<u8>{
     let current_context = transaction_context.get_current_instruction_context();
     let (utxo_authorities, utxo_data) = (&transaction_context.authorities,&transaction_context.data);
 
-    let instruction = &current_context.instruction;
-    let mut serialised_data = borsh::to_vec(&(instruction,utxo_authorities,utxo_data)).unwrap();
+    let instruction_context = transaction_context.get_current_instruction_context();
+
+    let utxos = instruction_context.utxos;
+    let len = utxos.len();
+    let length_bytes = len.to_le_bytes();
+    let utxo_ptr = utxos.as_ptr() as usize;
+    let utxo_ptr_bytes = utxo_ptr.to_le_bytes();
+
+    let mut vec_to_deser: Vec<u8> = vec![];
+    vec_to_deser.extend_from_slice(&utxo_ptr_bytes);
+    vec_to_deser.extend_from_slice(&length_bytes);
+
+    let mut serialised_data = borsh::to_vec(&(instruction_context.program_id.clone(),instruction_context.instruction_data)).unwrap();
     let data_len = serialised_data.len() as u32;
-    let mut data_len = data_len.to_le_bytes().to_vec();
+    let data_len = data_len.to_le_bytes();
     
-    data_len.append(&mut serialised_data);
-    data_len
+    vec_to_deser.extend_from_slice(&data_len);
+    vec_to_deser.append(&mut serialised_data);
+    println!("{:?}", vec_to_deser);
+    vec_to_deser
 }
 
-fn deserialise(transaction_context : &mut TransactionContext, mem : Vec<u8>) -> Transaction {
+fn deserialise(transaction_context : &mut TransactionContext, mem : Vec<u8>) -> Option<Transaction> {
     let instruction_context = transaction_context.get_current_instruction_context();
-    let current_program_id = &instruction_context.instruction.program_id.clone();
+    let current_program_id = &instruction_context.program_id.clone();
 
     let length = [mem[0],mem[1],mem[2],mem[3]];
     let length_of_output = u32::from_le_bytes(length);
     println!("length of output {length_of_output}");
 
     println!("mem {:?}",mem);
-    let (mut output_utxos, transaction)  = borsh::from_slice::<(Vec<UtxoInfo>,Transaction)>(&mem[4..(length_of_output + 4) as usize]).expect("can't deser");
+    let (mut output_utxos, transaction)  = borsh::from_slice::<(Vec<UtxoInfo>,Option<Transaction>)>(&mem[4..(length_of_output + 4) as usize]).expect("can't deser");
 
     // update authorities after checking if program could update the authorities
     for output_utxo in output_utxos.iter_mut() {
@@ -409,8 +457,6 @@ fn deserialise(transaction_context : &mut TransactionContext, mem : Vec<u8>) -> 
             let _ =transaction_context.update_utxo_data(&output_utox_id,&output_utxo.data.get_mut());
        }
     }
-
-    // let a = [32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 49, 0, 0, 0, 0, 1, 0, 0, 0, 49, 2, 0, 0, 0, 5, 0, 0, 0, 1, 2, 3, 4, 5, 2, 0, 0, 0, 3, 0, 0, 0, 49, 58, 48, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 49, 58, 50, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 49, 58, 48, 0, 0, 0, 0, ];
 
     transaction
 
@@ -436,61 +482,34 @@ impl Default for LogCollector {
         }
     }
 }
-// pub struct InvokeContext<'a> {
-//     pub transaction_context: &'a mut TransactionContext,
-//     log_collector: Option<Rc<RefCell<LogCollector>>>,
-//     traces: Vec<Vec<[u64; 12]>>,
-// }
 
-// #[derive(Debug, Clone)]
-// pub struct TransactionContext {
-//     utxos: Rc<TransactionUTXOS>,
-//     instruction_stack_capacity: usize,
-//     instruction_trace_capacity: usize,
-//     instruction_stack: Vec<usize>,
-//     instruction_trace: Vec<InstructionContext>,
-//     return_data: TransactionReturnData,
-// }
 
-// impl TransactionContext {
-//     pub fn new(
-//         transaction_utxos: Vec<TransactionUTXO>,
-//         instruction_stack_capacity: usize,
-//         instruction_trace_capacity: usize,
-//     ) -> Self  {
-//         Self {
-//             utxos: transaction_utxos,
-//             instruction_stack_capacity,
-//             instruction_trace_capacity,
-//             instruction_stack: todo!(),
-//             instruction_trace: vec![InstructionContext::default()],
-//             return_data: TransactionReturnData::default(),
-//         }
-//     }
-// }
+#[test]
+fn test_for_serde() {
+    let utxo: &[UtxoInfo] = &[UtxoInfo{
+        txid : String::from("1"),
+        vout : 2,
+        authority : RefCell::new(Pubkey(vec![0;32])),
+        data: RefCell::new(vec![78;32]),
+    }] ;
+    
+    println!("{}",utxo.len());
 
-// #[derive(Debug, Clone)]
-// pub struct InstructionContext {
-//     nesting_level: usize,
-//     program_utxos: Vec<Pubkey>,
-//     instruction_utxos: Vec<InstructionUTXO>,
-//     instruction_data: Vec<u8>,
-// }
+    let ptr = utxo.as_ptr() as usize;
+    let a = ptr.to_le_bytes();
 
-// #[derive(Debug, Clone)]
-// pub struct TransactionReturnData {
-//     pub program_id: Pubkey,
-//     pub data: Vec<u8>
-// }
+    let mut vec_to_deser: Vec<u8> = vec![];
+    vec_to_deser.extend_from_slice(&a);
+     
+    let ptr = vec_to_deser.as_ptr();
 
-// #[derive(Debug, Clone)]
-// pub struct TransactionUTXOS {
-//     accounts: Vec<RefCell<UTXOSharedData>>,
-//     touched_flags: RefCell<Box<[bool]>>,
-// }
+    let new_ptr = unsafe {
+        *(ptr as *mut usize)
+    };
+    let utxos = unsafe {
+        std::slice::from_raw_parts(new_ptr as *const UtxoInfo, 1)
+    };
 
-// #[derive(Debug, Clone)]
-// pub struct UTXOSharedData {
-//     authority : Pubkey,
-//     data: Vec<u8>,
-// }
+    println!("{:?}",utxos);
+
+}

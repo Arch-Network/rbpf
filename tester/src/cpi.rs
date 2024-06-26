@@ -1,34 +1,68 @@
-use std::sync::Arc;
 
-use solana_rbpf::{memory_region::MemoryMapping, program::SBPFVersion, vm::{Config, EbpfVm, TestContextObject}};
+// use core_types::types::{Instruction, Pubkey, UtxoInfo, UtxoMeta};
+// use solana_rbpf::memory_region::MemoryMapping;
+// type Error = Box<dyn std::error::Error>;
+// use crate::{config::SyscallInvokeSigned, processor::InvokeContext};
 
-use crate::config::create_program_runtime_environment_v1;
+// pub fn invoke_signed_unchecked(
+//     pubkey: &Pubkey,
+//     utxos: &Vec<UtxoInfo>,
+//     instruction_data : &Vec<u8>
+// ) -> ProgramResult {
+//     {
+//         let instruction = CpiContext::from(pubkey.clone(),&*utxos.clone(),instruction_data.clone());
+//         let result = unsafe {
+//             crate::syscalls::sol_invoke_signed_rust(
+//                 &instruction as *const _ as *const u8,
+//             )
+//         };
+//         match result {
+//             0 => Ok(()),
+//             // crate::entrypoint::SUCCESS => Ok(()),
+//             _ => Err(result.into()),
+//         }
+//     }
+// }
 
- // The Murmur3 hash value (used by RBPF) of the string "entrypoint"
- const ENTRYPOINT_KEY: u32 = 0x71E3CF81;
+// #[repr(C)]
+// pub struct CpiContext<'a> {
+//     pubkey: Pubkey,
+//     utxos : &'a [UtxoInfo],
+//     instruction_data: Vec<u8>
+// }
 
+// impl<'a> CpiContext<'a> {
+//     pub fn from(pubkey : Pubkey, utxos : &Vec<UtxoInfo>, instruction_data: Vec<u8>) -> Self {
+//         Self {
+//             pubkey,
+//             utxos,
+//             instruction_data
+//         }
+//     }
+// }
 
- #[test]
- fn testing_cpi() {
-    let mut result = create_program_runtime_environment_v1(false).unwrap();
+// pub fn cpi_common<S>(invoke_context : &mut InvokeContext, cpi_context_addr : u64, memory_mapping:& mut MemoryMapping) -> Result<u64, Error> 
+// where S : SyscallInvokeSigned{
+//     let context = S::translate_instruction(cpi_context_addr, memory_mapping, invoke_context)?;
 
-    let function= result.get_function_registry().lookup_by_key(ENTRYPOINT_KEY).map(|(_name, function)| function).unwrap();
+//     // update the authorities
+//     let transaction_context = invoke_context.get_current_transaction_context();
+//     let utxo_data = transaction_context.get_data();
+//     let utxo_authority = transaction_context.get_authorities();
+//     let current_instruction_context = transaction_context.get_current_instruction_context();
+//     let caller_program_id = current_instruction_context.get_program_id();
+//     let utxos = context.utxos;
 
-    let mock_config = Config::default();
-    let empty_memory_mapping =
-            MemoryMapping::new(Vec::new(), &mock_config, &SBPFVersion::V1).unwrap();
-    
-            let mut context_object: TestContextObject = TestContextObject::new(15000000000);
+//     // for every utxo, update data and then check if the authoirty has been changed, if it has, change it to updated value
 
-    let mut vm = EbpfVm::new(
-        Arc::new(result),
-        &SBPFVersion::V1,
-        // Removes lifetime tracking
-        &mut context_object,
-        empty_memory_mapping,
-        0,
-    );
-    
-    vm.invoke_function(function);
-
- }
+//     for utxo in utxos {
+//         if let Some(caller_program_id) = utxo_authority.get(&utxo.id()) {
+//             // update data 
+//             *utxo_data.get_mut(&utxo.id()).expect("utox id must exist") = *utxo.data.borrow();
+//             *utxo_authority.get_mut(&utxo.id()).expect("utox id must exist") = (*utxo.authority.borrow().0).to_vec();
+//         }
+//     }
+//     // make new context
+//     invoke_context.
+//     Ok(0)
+// }

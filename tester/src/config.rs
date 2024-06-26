@@ -4,31 +4,14 @@ use solana_rbpf::{declare_builtin_function, error::EbpfError, memory_region::{Ac
 
 // use crate::processor::InvokeContext;
 
-use crate::processor::InvokeContext;
+// use crate::{cpi::CpiContext, processor::InvokeContext};
+use crate::{ processor::InvokeContext};
 
 type Error = Box<dyn std::error::Error>;
 
 pub fn create_program_runtime_environment_v1<'a>(
     reject_deployment_of_broken_elfs: bool,
 ) -> Result<BuiltinProgram<InvokeContext<'a>>, Error> {
-    // let enable_alt_bn128_syscall = feature_set.is_active(&enable_alt_bn128_syscall::id());
-    // let enable_alt_bn128_compression_syscall =
-        // feature_set.is_active(&enable_alt_bn128_compression_syscall::id());
-    // let enable_big_mod_exp_syscall = feature_set.is_active(&enable_big_mod_exp_syscall::id());
-    // let blake3_syscall_enabled = feature_set.is_active(&blake3_syscall_enabled::id());
-    // let curve25519_syscall_enabled = feature_set.is_active(&curve25519_syscall_enabled::id());
-    // let disable_fees_sysvar = feature_set.is_active(&disable_fees_sysvar::id());
-    // let epoch_rewards_syscall_enabled =
-        // feature_set.is_active(&enable_partitioned_epoch_reward::id());
-    // let disable_deploy_of_alloc_free_syscall = reject_deployment_of_broken_elfs
-    //     && feature_set.is_active(&disable_deploy_of_alloc_free_syscall::id());
-    // let last_restart_slot_syscall_enabled = feature_set.is_active(&last_restart_slot_sysvar::id());
-    // let enable_poseidon_syscall = feature_set.is_active(&enable_poseidon_syscall::id());
-    // let remaining_compute_units_syscall_enabled =
-        // feature_set.is_active(&remaining_compute_units_syscall_enabled::id());
-    // !!! ATTENTION !!!
-    // When adding new features for RBPF here,
-    // also add them to `Bank::apply_builtin_program_feature_transitions()`.
 
     let config = Config {
         max_call_depth: 20,
@@ -223,7 +206,30 @@ pub fn create_program_runtime_environment_v1<'a>(
     Ok(BuiltinProgram::new_loader(config, result))
 }
 
+pub struct SyscallInvokeSignedRust {}
 
+// pub trait SyscallInvokeSigned {
+//     fn translate_instruction(
+//         addr: u64,
+//         memory_mapping: &MemoryMapping,
+//         invoke_context: &mut InvokeContext,
+//     ) -> Result<CpiContext, Error>;
+// }
+
+// impl SyscallInvokeSigned for SyscallInvokeSignedRust {
+//     fn translate_instruction(
+//         addr: u64,
+//         memory_mapping: &MemoryMapping,
+//         invoke_context: &mut InvokeContext,
+//     ) -> Result<CpiContext, Error> {
+//         let context = translate_type::<CpiContext>(
+//             memory_mapping,
+//             addr,
+//             true,
+//         )?;
+//         Ok(*context)
+//     }
+// }
 fn address_is_aligned<T>(address: u64) -> bool {
     (address as *mut T as usize)
         .checked_rem(align_of::<T>())
@@ -449,6 +455,27 @@ declare_builtin_function!(
         )
     }
 );
+
+// declare_builtin_function!(
+//     /// Cross-program invocation called from Rust
+//     SyscallInvokeSignedRust,
+//     fn rust(
+//         invoke_context: &mut InvokeContext,
+//         instruction_addr: u64,
+//         account_infos_addr: u64,
+//         // account_infos_len: u64,
+//         // signers_seeds_addr: u64,
+//         // signers_seeds_len: u64,
+//         _arg5: u64,
+//         memory_mapping: &mut MemoryMapping,
+//     ) -> Result<u64, Error> {
+//         cpi_common::<Self>(
+//             invoke_context,
+//             memory_mapping,
+//         )
+//     }
+// );
+
 
 declare_builtin_function!(
     /// Log a user's info message

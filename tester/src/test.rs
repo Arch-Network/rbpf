@@ -1,17 +1,100 @@
-use std::{collections::HashMap, fs::File, io::Read, str::from_utf8, string, sync::Arc};
-use borsh::try_from_slice_with_schema;
+use std::{cell::RefCell, collections::HashMap, fs::File, io::Read, mem, str::from_utf8, string, sync::Arc};
+use borsh::{from_slice, try_from_slice_with_schema};
 use core_types::types::*;
 use sha256::digest;
-use solana_program::address_lookup_table::instruction;
+use solana_program::{address_lookup_table::instruction};
 use solana_rbpf::{
     aligned_memory::AlignedMemory, ebpf, elf::Executable, memory_region::{MemoryMapping, MemoryRegion}, program::{BuiltinFunction, BuiltinProgram, FunctionRegistry}, verifier::RequisiteVerifier, vm::{Config, EbpfVm, TestContextObject}
 };
 use core_types::types::*;
-use crate::{config::create_program_runtime_environment_v1, processor::{InvokeContext, Message, MessageProcessor, TransactionContext}};
+use crate::{config::create_program_runtime_environment_v1, processor::{self, InvokeContext, Message, MessageProcessor, TransactionContext, TransactionInstruction, TransactionMessage}};
 
 // use crate::{config::create_program_runtime_environment_v1};
 
+#[test]
+fn test_serde_process() {
+    let pubkey_for_program =  Pubkey(vec![0;32]);
+    let utxo1 = UtxoInfo{ txid: String::from("1"), vout: 0, authority : RefCell::new(pubkey_for_program.clone()), data : RefCell::new("Hello from inside the test".as_bytes().to_vec())};
+    let utxo2 = UtxoInfo{ txid: String::from("1"), vout: 2, authority : RefCell::new(pubkey_for_program.clone()), data : RefCell::new("".as_bytes().to_vec())}; 
+    let message = TransactionMessage {
+        signers: vec![],
+        instructions: vec![TransactionInstruction {
+            program_id : pubkey_for_program.clone(),
+            utxos : vec![utxo1.clone(),utxo2.clone()],
+            data: vec![1,2,3,4,5]
+        }]
+    };
 
+    let utxos = &[utxo1.clone(),utxo2.clone()];
+    let mut authority = HashMap::new();
+    authority.insert(utxo1.id(), pubkey_for_program.0.clone());
+    authority.insert(utxo2.id(), pubkey_for_program.0.clone());
+
+    let mut data= HashMap::new();
+    data.insert(utxo1.id(), "Hello from inside the test".as_bytes().to_vec());
+    data.insert(utxo2.id(), vec![]);
+
+ 
+  // SERALISE
+    let len = utxos.len();
+    let length_bytes = len.to_le_bytes();
+    let utxo_ptr = utxos.as_ptr() as usize;
+    let utxo_ptr_bytes = utxo_ptr.to_le_bytes();
+
+    let mut vec_to_deser: Vec<u8> = vec![];
+    vec_to_deser.extend_from_slice(&utxo_ptr_bytes);
+    vec_to_deser.extend_from_slice(&length_bytes);
+
+    let mut serialised_data = borsh::to_vec(&(pubkey_for_program.clone(),vec![1u8,2,3,4,5])).unwrap();
+    let data_len = serialised_data.len() as u32;
+    println!("data len {}",data_len);
+    let data_len = data_len.to_le_bytes();
+    
+    vec_to_deser.extend_from_slice(&data_len);
+    vec_to_deser.append(&mut serialised_data);
+
+  // DESER
+
+    println!("serialised data {:?}", vec_to_deser);
+
+    let input = vec_to_deser.as_mut_ptr();
+
+    let mut size = 0;
+    let size_of_usize = mem::size_of::<usize>();
+    let utxos_ptr = unsafe {
+        *(input as *mut usize)
+    };
+
+    size += size_of_usize;
+
+    let len = unsafe {
+        *(input.add(size) as *const usize)
+    };
+
+    println!("len {:?}",len);
+
+    size += size_of_usize;
+
+    let utxos = unsafe {
+        std::slice::from_raw_parts(utxos_ptr as *const UtxoInfo, len)
+    };
+
+    println!("utxos {:?}",utxos);
+    let length_of_data = unsafe { *(input.add(size) as *mut u32) };
+    println!("length of data: {}",length_of_data);
+
+    size += mem::size_of::<u32>();
+
+    let data_slice = unsafe { std::slice::from_raw_parts(input.add(size), length_of_data as usize) };
+
+    let (program_id, instruction_data): (Pubkey,Vec<u8>) = from_slice(data_slice)
+        .expect("unable to deserialise input to entrypoint function");
+
+    println!("{:?} {:?} {:?}",program_id,utxos,instruction_data);
+
+}
+
+#[test]
 pub fn test_v2() {
 
     let mut file = File::open("../target/sbf-solana-solana/release/ebpf.so").unwrap();
@@ -21,11 +104,11 @@ pub fn test_v2() {
     let pubkey_for_program =  Pubkey(vec![0;32]);
     let utxo1 = UtxoMeta{ txid: String::from("1"), vout: 0};
     let utxo2 = UtxoMeta{ txid: String::from("1"), vout: 2};
-    let message = Message {
+    let message = TransactionMessage {
         signers: vec![],
-        instructions: vec![Instruction {
+        instructions: vec![TransactionInstruction {
             program_id : pubkey_for_program.clone(),
-            utxos : vec![UtxoMeta{ txid: String::from("1"), vout: 0},UtxoMeta{ txid: String::from("1"), vout: 2} ],
+            utxos : vec![UtxoInfo{ txid: String::from("1"), vout: 0, authority : RefCell::new(pubkey_for_program.clone()), data : RefCell::new("Hello from inside the test".as_bytes().to_vec())},UtxoInfo{ txid: String::from("1"), vout: 2, authority : RefCell::new(pubkey_for_program.clone()), data : RefCell::new("Hello".as_bytes().to_vec())} ],
             data: vec![1,2,3,4,5]
         }]
     };
@@ -46,9 +129,9 @@ pub fn test_v2() {
     let log_collector = None;
 
     let mut transaction_context = TransactionContext::new(4,80,authority,data);
-    let message_processor = MessageProcessor::process_message(message, &mut transaction_context,log_collector, programs);
+    let message_processor = MessageProcessor::process_message(&message, &mut transaction_context,log_collector, programs);
 
-    println!("Post processing:\n Authorities : {:?}\n Data: : {:?}\n", transaction_context.get_authorities(), transaction_context.get_data());
+    // println!("Post processing:\n Authorities : {:?}\n Data: : {:?}\n", transaction_context.get_authorities(), transaction_context.get_data());
 
 
 }
