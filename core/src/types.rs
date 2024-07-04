@@ -1,25 +1,29 @@
 use std::{cell::RefCell, collections::HashMap, hash::Hash};
-
+use std::convert::AsRef;
 use borsh::{BorshDeserialize,  BorshSerialize};
 
-#[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug)]
-pub struct UtxoInfo {
-    pub txid: String,
-    pub vout: u32,
-    pub authority: RefCell<Pubkey>,
-    pub data: RefCell<Vec<u8>>,
-}
-impl UtxoInfo {
-    pub fn id(&self) -> String {
-        format!("{}:{}", self.txid, self.vout)
+
+#[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone, Eq, Default, Hash, Copy)]
+pub struct Pubkey(pub [u8; 32]);
+impl Pubkey {
+    pub fn from_array(arr: [u8; 32]) -> Self {
+        Pubkey(arr)
+    }
+
+    pub const fn to_bytes(self) -> [u8; 32] {
+        self.0
     }
 }
 
-#[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone, Eq, Default, Hash)]
-pub struct Pubkey(pub Vec<u8>);
-impl Pubkey {
-    pub fn from_array(arr: [u8; 32]) -> Self {
-        Pubkey(arr.to_vec())
+impl AsRef<[u8]> for Pubkey {
+    fn as_ref(&self) -> &[u8] {
+        &self.0[..]
+    }
+}
+
+impl AsMut<[u8]> for Pubkey {
+    fn as_mut(&mut self) -> &mut [u8] {
+        &mut self.0[..]
     }
 }
 
@@ -46,10 +50,10 @@ pub struct TxOut {
     pub script_pubkey: Vec<u8>,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, BorshSerialize, BorshDeserialize, Default, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, BorshSerialize, BorshDeserialize, Default)]
 pub struct Instruction {
     pub program_id: Pubkey,
-    pub utxos: Vec<UtxoMeta>,
+    pub utxos: Vec<u16>,
     pub data: Vec<u8>,
 }
 

@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 borsh = { version = "1.5.1" , features = ["derive"]}
+thiserror = "1.0.61"
+rustversion = "1.0.14"

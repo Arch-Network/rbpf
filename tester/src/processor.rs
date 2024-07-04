@@ -1,13 +1,15 @@
 use core::fmt;
-use std::{alloc::Layout, cell::RefCell, collections::HashMap, env::current_exe, rc::Rc, sync::Arc};
+use std::{alloc::Layout, cell::{RefCell, RefMut}, collections::HashMap, env::current_exe, rc::Rc, sync::Arc};
 
-use core_types::types::{Instruction, Pubkey, Transaction, UtxoInfo, UtxoMeta};
+use core_types::{entrypoint::MAX_PERMITTED_DATA_LENGTH, types::{Instruction, Pubkey, Transaction, UtxoMeta}};
 use sha256::digest;
+use solana_program::address_lookup_table::instruction;
 use solana_rbpf::{aligned_memory::AlignedMemory, ebpf::{self, MM_HEAP_START}, elf::Executable, memory_region::{MemoryMapping, MemoryRegion}, verifier::RequisiteVerifier, vm::{ContextObject, EbpfVm}};
 
-use crate::config::create_program_runtime_environment_v1;
+use crate::{config::create_program_runtime_environment_v1, errors::{InstructionError, TransactionError}, serialization::{deserialize_parameters, serialize_parameters}};
 
-pub const MAX_COMPUTE_VALUE:u64 =  15000000000;
+pub const MAX_COMPUTE_VALUE:u64 =  15_000_000_000;
+pub type IndexOfUtxo = usize;
 
 pub struct MessageProcessor {}
 
@@ -15,14 +17,13 @@ impl MessageProcessor {
     pub fn process_message(
         message : Message,
         transaction_context : &mut TransactionContext,
-        log_collector: Option<Rc<RefCell<LogCollector>>>,
+       /*log_collector: Option<Rc<RefCell<LogCollector>>>,*/
         programs : HashMap<String,Vec<u8>>,
-    ) {
+    )  -> Result<(), TransactionError>{
 
         let traces = vec![];
         let mut invoke_context = InvokeContext::new(
             transaction_context,
-            log_collector,
             programs,
             RefCell::new(MAX_COMPUTE_VALUE),
             traces,
@@ -30,8 +31,30 @@ impl MessageProcessor {
 
         // this is processing of a transaction
         for instruction in message.instructions {
-            invoke_context.process_instruction(instruction);
+            let mut instruction_utxos = Vec::with_capacity(instruction.utxos.len());
+
+            for (instruction_account_index, index_in_transaction) in
+                instruction.utxos.iter().enumerate()
+            {
+                let index_in_callee = instruction
+                    .utxos
+                    .get(0..instruction_account_index)
+                    .ok_or(TransactionError::InvalidAccountIndex)?
+                    .iter()
+                    .position(|account_index| account_index == index_in_transaction)
+                    .unwrap_or(instruction_account_index)
+                    as IndexOfUtxo;
+                let index_in_transaction = *index_in_transaction as usize;
+                instruction_utxos.push(InstructionUtxo {
+                    index_in_transaction: index_in_transaction as IndexOfUtxo,
+                    index_in_caller: index_in_transaction as IndexOfUtxo,
+                    index_in_callee,
+                });
+            }
+            invoke_context.process_instruction(&instruction.data, &instruction_utxos,instruction.program_id.as_ref());
         }
+
+        Ok(())
     }
 }
 
@@ -78,7 +101,7 @@ pub struct SyscallContext {
 
 pub struct InvokeContext<'a> {
     transaction_context : &'a mut TransactionContext,
-    log_collector: Option<Rc<RefCell<LogCollector>>>,
+    /*log_collector: Option<Rc<RefCell<LogCollector>>>,*/
     programs : HashMap<String,Vec<u8>>,
     compute_meter: RefCell<u64>,
     traces: Vec<[u64; 12]>,
@@ -105,14 +128,12 @@ impl<'a> ContextObject for InvokeContext<'a> {
 impl<'a> InvokeContext<'a> {
     pub fn new(
         transaction_context : &'a mut TransactionContext,
-        log_collector: Option<Rc<RefCell<LogCollector>>>,
         programs : HashMap<String,Vec<u8>>,
         compute_meter: RefCell<u64>,
         traces: Vec<[u64; 12]>,
     ) -> Self {
         Self {
             transaction_context,
-            log_collector,
             programs,
             compute_meter,
             traces,
@@ -121,11 +142,13 @@ impl<'a> InvokeContext<'a> {
     }
     pub fn process_instruction(
         &mut self,
-        instruction : Instruction
-    ) -> Result<(), String> {
+        instruction_data: &[u8],
+        instruction_utxos: &[InstructionUtxo],
+        program_id : &[u8]
+    ) -> Result<(), InstructionError> {
         self.transaction_context
             .get_next_instruction_context()
-            .configure(instruction);
+            .configure(instruction_data,instruction_utxos,program_id);
         self.push()?;
         self.process_executable_chain()
             // MUST pop if and only if `push` succeeded, independent of `result`.
@@ -140,11 +163,11 @@ impl<'a> InvokeContext<'a> {
             .ok_or("call Depth error".into())
     }
 
-    pub fn pop(&mut self) -> Result<(), String> {
+    pub fn pop(&mut self) -> Result<(), InstructionError> {
         self.transaction_context.pop()
     }
 
-    pub fn push(&mut self) -> Result<(),String> {
+    pub fn push(&mut self) -> Result<(),InstructionError> {
         let instruction_context = self
         .transaction_context
         .get_instruction_context_at_index_in_trace(
@@ -158,21 +181,21 @@ impl<'a> InvokeContext<'a> {
 
     fn process_executable_chain(
         &mut self,
-    ) -> Result<(), String> {
-        let mut mem = serealise(&self.transaction_context);
-        let current_ins_context = self.transaction_context.get_current_instruction_context();
+    ) -> Result<(), InstructionError> {
+
+        let (mut parameter_bytes,serialized_accounts) = serialize_parameters(&self.transaction_context,  self.transaction_context.get_current_instruction_context())?;
         // Part One: Transaction Procesing
         
         // elf file
-        let elf = self.programs.get(&digest(digest(current_ins_context.instruction.program_id.0.clone()))).expect("can't find the key associated with the program account");
+        let elf = self.programs.get(&digest(digest( self.transaction_context.get_current_instruction_context().program_id.as_ref()))).expect("can't find the key associated with the program account");
 
         let mut result = create_program_runtime_environment_v1(false);
 
         let executable =
         Executable::<InvokeContext>::from_elf(&elf, Arc::new(result.unwrap())).unwrap();
 
-    let program = executable.get_text_bytes().1;
-    let executable_registry = executable.get_function_registry();
+        let program = executable.get_text_bytes().1;
+        let executable_registry = executable.get_function_registry();
         let loader_registry = executable.get_loader().get_function_registry();
 
         // println!("executable {:?}\n\nloader {:?}\n\n", executable_registry,loader_registry);
@@ -189,8 +212,7 @@ impl<'a> InvokeContext<'a> {
     
         let mut heap = AlignedMemory::<{ ebpf::HOST_ALIGN }>::zero_filled(120 * 1024);
     
-        mem.extend_from_slice(&[0u8;1024]);
-        let mem_region = MemoryRegion::new_writable(&mut mem, ebpf::MM_INPUT_START);
+        let mem_region = MemoryRegion::new_writable(parameter_bytes.as_slice_mut(), ebpf::MM_INPUT_START);
     
         let regions: Vec<MemoryRegion> = vec![
             executable.get_ro_region(),
@@ -213,11 +235,9 @@ impl<'a> InvokeContext<'a> {
 
         let (instruction_count, result) = vm.execute_program(&executable, true);
         println!("result is {:?}", result);
-        // PART TWO : POST PROCESSING
-        let transaction = deserialise(&mut self.transaction_context, mem);
 
-        // now all the authorities have been updated inside the transaction contexts' structs
-        // TODO: update authorities in main database
+        // PART TWO : POST PROCESSING
+        deserialize_parameters(self.transaction_context,  self.transaction_context.get_current_instruction_context(), parameter_bytes.as_slice(), &serialized_accounts);
 
         Ok(())
     }
@@ -225,6 +245,12 @@ impl<'a> InvokeContext<'a> {
 
 }
 
+#[derive(Debug, Clone)]
+pub struct SerializedUtxoMetadata {
+    pub original_data_len: usize,
+    pub vm_data_addr: u64,
+    pub vm_authority_addr: u64,
+}
 
 #[derive(Debug, Clone)]
 pub struct Message {
@@ -239,38 +265,88 @@ pub struct TransactionContext {
     instruction_trace_capacity: usize,
     instruction_stack: Vec<usize>,
     instruction_trace: Vec<InstructionContext>,
-    authorities : HashMap<String,Vec<u8>>,
-    data : HashMap<String,Vec<u8>>
+    utxos : Rc<TransactionUtxos>
+}
+
+#[derive(Debug, Clone)]
+pub struct TransactionUtxos {
+    utxos: Vec<RefCell<UtxoSharedData>>,
+}
+
+impl TransactionUtxos {
+    pub fn from(utxos: Vec<UtxoSharedData> ) -> Self {
+    Self {
+        utxos : utxos.iter().map(
+            |utxo| RefCell::new(utxo.clone())
+        ).collect::<Vec<RefCell<UtxoSharedData>>>()
+    }
+}
+
+    pub fn get(&self, index: IndexOfUtxo) -> Option<&RefCell<UtxoSharedData>> {
+        self.utxos.get(index as usize)
+    }    
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InstructionUtxo {
+    /// Points to the utxo and its key in the `TransactionContext`
+    pub index_in_transaction: IndexOfUtxo,
+    /// Points to the first occurrence in the parent `InstructionContext`
+    pub index_in_caller: IndexOfUtxo,
+    /// Points to the first occurrence in the current `InstructionContext`
+    pub index_in_callee: IndexOfUtxo,
+}
+
+#[derive(Debug, Clone)]
+pub struct UtxoSharedData {
+    /// data held in this utxo
+    data: Vec<u8>,
+    /// authority over this utxo
+    authority: Pubkey,
+    /// txid of this utxo
+    txid : [u8;32],
+    /// vout in btc txn
+    vout: u32
+}
+
+impl UtxoSharedData {
+    pub fn create(
+        data: Vec<u8>,
+        authority: Pubkey,
+        txid: [u8;32],
+        vout: u32
+    ) -> Self {
+        Self { data, authority, txid, vout }
+    }
+    pub fn get_vout(&self) -> u32 {
+        self.vout
+    }
+
+    fn set_data(&mut self, data: Vec<u8>) {
+        self.data = data;
+    }
+
+    fn copy_into_authority_from_slice(&mut self, source: &[u8]) {
+        self.authority.as_mut().copy_from_slice(source);
+    }
 }
 
 impl TransactionContext {
     pub fn new(
-        // instructions : Vec<Instruction>,
+        utxos: TransactionUtxos,
         instruction_stack_capacity: usize,
         instruction_trace_capacity: usize,
-        authorities : HashMap<String,Vec<u8>>,
-        data : HashMap<String,Vec<u8>>
     ) -> Self {
             Self {
-                // instructions,
+                utxos: Rc::new(utxos),
                 instruction_stack_capacity,
                 instruction_trace_capacity,
                 instruction_stack: Vec::with_capacity(instruction_stack_capacity),
                 instruction_trace: vec![InstructionContext::default()],
-                authorities,
-                data
             }
     }
 
-    pub fn get_authorities(&self ) -> &HashMap<String,Vec<u8>> {
-        &self.authorities
-    }
-
-    pub fn get_data(&self ) -> &HashMap<String,Vec<u8>> {
-        &self.data
-    }
-
-    pub fn push(&mut self) -> Result<(), String> {
+    pub fn push(&mut self) -> Result<(), InstructionError> {
         let nesting_level = self.get_instruction_context_stack_height();
 
         let instruction_context = self.get_next_instruction_context();
@@ -278,45 +354,45 @@ impl TransactionContext {
             
         let index_in_trace = self.get_instruction_trace_length();
         if index_in_trace >= self.instruction_trace_capacity {
-            return Err("MaxInstructionTraceLengthExceeded".into());
+            return Err(InstructionError::MaxInstructionTraceLengthExceeded);
         }
 
         self.instruction_trace.push(InstructionContext::default());
 
         if nesting_level >= self.instruction_stack_capacity {
-            return Err("Call Depth Error".into());
+            return Err(InstructionError::CallDepth);
         }
         self.instruction_stack.push(index_in_trace);
 
         Ok(())
     }
 
-    pub fn pop(&mut self) -> Result<(), String>  {
+    pub fn pop(&mut self) -> Result<(), InstructionError>  {
         if self.instruction_stack.is_empty() {
-            return Err("Call Depth Error".into());
+            return Err(InstructionError::CallDepth);
         }
 
         if let Some(v) = self.instruction_stack.pop() {
             return Ok(())
         } else {
-            return Err("Error in removing instruction context".into())
+            return Err(InstructionError::MissingAccount)
         }
 
     }
 
-    pub fn update_utxo_authority(&mut self, id: &String,value : &Vec<u8>) -> Result<(), String> {
-        let mut authority = self.authorities.get_mut(id).ok_or::<String>("no matching authority found".into())?;
-        *authority = (*value.clone()).to_vec();
+    // pub fn update_utxo_authority(&mut self, id: &String,value : &Vec<u8>) -> Result<(), String> {
+    //     let mut authority = self.authorities.get_mut(id).ok_or::<String>("no matching authority found".into())?;
+    //     *authority = (*value.clone()).to_vec();
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
-    pub fn update_utxo_data(&mut self, id: &String,value : &Vec<u8>) -> Result<(), String> {
-        let mut authority = self.data.get_mut(id).ok_or::<String>("no matching data found".into())?;
-        *authority = (*value.clone()).to_vec();
+    // pub fn update_utxo_data(&mut self, id: &String,value : &Vec<u8>) -> Result<(), String> {
+    //     let mut authority = self.data.get_mut(id).ok_or::<String>("no matching data found".into())?;
+    //     *authority = (*value.clone()).to_vec();
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
     pub fn get_instruction_context_stack_height(&self) -> usize {
         self.instruction_stack.len()
     }
@@ -363,58 +439,195 @@ impl TransactionContext {
 
 #[derive(Debug, Clone, Default)]
 pub struct InstructionContext {
-    nesting_level : usize,
-    instruction: Instruction
+    pub(crate) nesting_level : usize,
+    pub(crate) instruction_data: Vec<u8>,
+    pub(crate) instruction_utxos : Vec<InstructionUtxo>,
+    pub(crate) program_id : Pubkey,
 }
 
 impl InstructionContext {
-    pub fn configure(&mut self, instruction : Instruction)  {
-        self.instruction = instruction
+
+    pub fn get_instruction_data(&self) -> &[u8] {
+        &self.instruction_data
+    }
+    pub fn configure(&mut self, instruction_data: &[u8], instruction_utxos: &[InstructionUtxo], program_id : &[u8])  {
+        self.instruction_data = instruction_data.to_vec();
+        self.instruction_utxos = instruction_utxos.to_vec();
+        self.set_program_id(program_id);
+
+    }
+
+    fn set_program_id(&mut self, program_id : &[u8]) {
+        self.program_id.as_mut().copy_from_slice(program_id)
+    }
+    pub fn get_number_of_instruction_utxos(&self) -> usize {
+        self.instruction_utxos.len()
+    }
+
+    pub fn get_last_program_key(&self) -> &Pubkey {
+        &self.program_id
+    }
+
+    /// Returns `Some(instruction_autxos_index)` if this is a duplicate
+    /// and `None` if it is the first utxo with this key
+    pub fn is_instruction_utxo_duplicate(
+        &self,
+        instruction_account_index: IndexOfUtxo,
+    ) -> Result<Option<IndexOfUtxo>, InstructionError> {
+        let index_in_callee = self
+            .instruction_utxos
+            .get(instruction_account_index as usize)
+            .ok_or(InstructionError::NotEnoughAccountKeys)?
+            .index_in_callee;
+        Ok(if index_in_callee == instruction_account_index {
+            None
+        } else {
+            Some(index_in_callee)
+        })
+    }
+
+     /// Translates the given instruction wide instruction_account_index into a transaction wide index
+     pub fn get_index_of_instruction_utxo_in_transaction(
+        &self,
+        instruction_account_index: IndexOfUtxo,
+    ) -> Result<IndexOfUtxo, InstructionError> {
+        Ok(self
+            .instruction_utxos
+            .get(instruction_account_index as usize)
+            .ok_or(InstructionError::NotEnoughAccountKeys)?
+            .index_in_transaction as IndexOfUtxo)
+    }
+
+    /// Gets an instruction utxo of this Instruction
+    pub fn try_borrow_instruction_utxo<'a, 'b: 'a>(
+        &'a self,
+        transaction_context: &'b TransactionContext,
+        instruction_account_index: IndexOfUtxo,
+    ) -> Result<BorrowedUtxo<'a>, InstructionError> {
+        let index_in_transaction =
+            self.get_index_of_instruction_utxo_in_transaction(instruction_account_index)?;
+        self.try_borrow_utxo(
+            transaction_context,
+            index_in_transaction,
+            instruction_account_index
+        )
+    }
+
+    fn try_borrow_utxo<'a, 'b: 'a>(
+        &'a self,
+        transaction_context: &'b TransactionContext,
+        index_in_transaction: IndexOfUtxo,
+        index_in_instruction: IndexOfUtxo,
+    ) -> Result<BorrowedUtxo<'a>, InstructionError> {
+        let utxo = transaction_context
+            .utxos
+            .get(index_in_transaction)
+            .ok_or(InstructionError::MissingAccount)?
+            .try_borrow_mut()
+            .map_err(|_| InstructionError::AccountBorrowFailed)?;
+
+        Ok(BorrowedUtxo {
+            transaction_context,
+            instruction_context: self,
+            index_in_transaction,
+            index_in_instruction,
+            utxo,
+        })
     }
 }
 
-fn serealise(transaction_context : &TransactionContext) -> Vec<u8>{
-    let current_context = transaction_context.get_current_instruction_context();
-    let (utxo_authorities, utxo_data) = (&transaction_context.authorities,&transaction_context.data);
+/// Shared account borrowed from the TransactionContext and an InstructionContext.
+#[derive(Debug)]
+pub struct BorrowedUtxo<'a> {
+    transaction_context: &'a TransactionContext,
+    instruction_context: &'a InstructionContext,
+    index_in_transaction: IndexOfUtxo,
+    index_in_instruction: IndexOfUtxo,
+    utxo: RefMut<'a, UtxoSharedData>,
+}
 
-    let instruction = &current_context.instruction;
-    let mut serialised_data = borsh::to_vec(&(instruction,utxo_authorities,utxo_data)).unwrap();
-    let mut data_len = serialised_data.len() as u32;
-    let mut data_len = data_len.to_le_bytes().to_vec();
+impl<'a> BorrowedUtxo<'a> {
+    /// Returns the transaction context
+    pub fn transaction_context(&self) -> &TransactionContext {
+        self.transaction_context
+    }
+
+    /// Returns the index of this account (transaction wide)
+    #[inline]
+    pub fn get_index_in_transaction(&self) -> IndexOfUtxo {
+        self.index_in_transaction
+    }
+
+    pub fn data_len(&self) -> usize {
+        self.utxo.data.len()
+    }
+
+    pub fn get_vout(&self) -> u32 {
+        self.utxo.get_vout()
+    }
+
+    pub fn get_data(&self) -> &[u8] {
+        &self.utxo.data
+    }
+
+    pub fn get_txid(&self) -> &[u8] {
+        &self.utxo.txid
+    }
     
-    data_len.append(&mut serialised_data);
-    data_len
-}
-
-fn deserialise(transaction_context : &mut TransactionContext, mem : Vec<u8>) -> Transaction {
-    let instruction_context = transaction_context.get_current_instruction_context();
-    let current_program_id = &instruction_context.instruction.program_id.clone();
-
-    let length = [mem[0],mem[1],mem[2],mem[3]];
-    let length_of_output = u32::from_le_bytes(length);
-    println!("length of output {length_of_output}");
-
-    println!("mem {:?}",mem);
-    let (mut output_utxos, transaction)  = borsh::from_slice::<(Vec<UtxoInfo>,Transaction)>(&mem[4..(length_of_output + 4) as usize]).expect("can't deser");
-
-    // update authorities after checking if program could update the authorities
-    for output_utxo in output_utxos.iter_mut() {
-        let output_utox_id = output_utxo.id();
-        let utxo_authority_in_context = transaction_context.authorities.get(&output_utox_id).expect("must have a key in authority");
-        if *utxo_authority_in_context == current_program_id.0 {
-
-            let updated_owner =output_utxo.authority.get_mut();
-
-            // checking here can save us updating hashmap cost
-            if  updated_owner.0!= *transaction_context.authorities.get(&output_utox_id).unwrap() {
-                let _ = transaction_context.update_utxo_authority(&output_utox_id,&updated_owner.0);
-            }
-            let _ =transaction_context.update_utxo_data(&output_utox_id,&output_utxo.data.get_mut());
-       }
+    pub fn get_authority(&self) -> &Pubkey {
+        &self.utxo.authority
     }
 
-    let a = [32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 49, 0, 0, 0, 0, 1, 0, 0, 0, 49, 2, 0, 0, 0, 5, 0, 0, 0, 1, 2, 3, 4, 5, 2, 0, 0, 0, 3, 0, 0, 0, 49, 58, 48, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 49, 58, 50, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 49, 58, 48, 0, 0, 0, 0, ];
-    transaction
+    pub fn set_authority(&mut self, pubkey : &[u8]) -> Result<(), InstructionError> {
+        // Only the owner can assign a new owner
+        if !self.is_owned_by_current_utxo() {
+            return Err(InstructionError::ModifiedProgramId);
+        }
+
+        if self.get_authority().to_bytes() == pubkey {
+            return Ok(());
+        }
+
+        self.utxo.copy_into_authority_from_slice(pubkey);
+        Ok(())
+    }
+
+    pub fn can_data_be_resized(&self, new_length: usize) -> Result<(), InstructionError> {
+        let old_length = self.get_data().len();
+        // Only the owner can change the length of the data
+        if new_length != old_length && !self.is_owned_by_current_utxo() {
+            return Err(InstructionError::AccountDataSizeChanged);
+        }
+        // The new length can not exceed the maximum permitted length
+        if new_length > MAX_PERMITTED_DATA_LENGTH as usize {
+            return Err(InstructionError::InvalidRealloc);
+        }
+
+        Ok(())
+    }
+
+    pub fn is_owned_by_current_utxo(&self) -> bool {
+        self.instruction_context
+            .get_last_program_key() == self.get_authority()
+            
+    }
+
+    pub fn can_data_be_changed(&self) -> Result<(), InstructionError> {
+        //  only if we are the owner
+        if !self.is_owned_by_current_utxo() {
+            return Err(InstructionError::ExternalAccountDataModified);
+        }
+        Ok(())
+    }
+
+    pub fn set_data_from_slice(&mut self, data: &[u8]) -> Result<(), InstructionError> {
+        self.can_data_be_resized(data.len())?;
+        self.can_data_be_changed()?;
+        self.utxo.set_data(data.to_vec());
+
+        Ok(())
+    }
+
 
 }
 
@@ -438,61 +651,4 @@ impl Default for LogCollector {
         }
     }
 }
-// pub struct InvokeContext<'a> {
-//     pub transaction_context: &'a mut TransactionContext,
-//     log_collector: Option<Rc<RefCell<LogCollector>>>,
-//     traces: Vec<Vec<[u64; 12]>>,
-// }
 
-// #[derive(Debug, Clone)]
-// pub struct TransactionContext {
-//     utxos: Rc<TransactionUTXOS>,
-//     instruction_stack_capacity: usize,
-//     instruction_trace_capacity: usize,
-//     instruction_stack: Vec<usize>,
-//     instruction_trace: Vec<InstructionContext>,
-//     return_data: TransactionReturnData,
-// }
-
-// impl TransactionContext {
-//     pub fn new(
-//         transaction_utxos: Vec<TransactionUTXO>,
-//         instruction_stack_capacity: usize,
-//         instruction_trace_capacity: usize,
-//     ) -> Self  {
-//         Self {
-//             utxos: transaction_utxos,
-//             instruction_stack_capacity,
-//             instruction_trace_capacity,
-//             instruction_stack: todo!(),
-//             instruction_trace: vec![InstructionContext::default()],
-//             return_data: TransactionReturnData::default(),
-//         }
-//     }
-// }
-
-// #[derive(Debug, Clone)]
-// pub struct InstructionContext {
-//     nesting_level: usize,
-//     program_utxos: Vec<Pubkey>,
-//     instruction_utxos: Vec<InstructionUTXO>,
-//     instruction_data: Vec<u8>,
-// }
-
-// #[derive(Debug, Clone)]
-// pub struct TransactionReturnData {
-//     pub program_id: Pubkey,
-//     pub data: Vec<u8>
-// }
-
-// #[derive(Debug, Clone)]
-// pub struct TransactionUTXOS {
-//     accounts: Vec<RefCell<UTXOSharedData>>,
-//     touched_flags: RefCell<Box<[bool]>>,
-// }
-
-// #[derive(Debug, Clone)]
-// pub struct UTXOSharedData {
-//     authority : Pubkey,
-//     data: Vec<u8>,
-// }
