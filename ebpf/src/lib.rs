@@ -15,6 +15,8 @@ pub fn process_instruction(
 ) -> Result<(), String> {
 
 
+    let first_utxo = &utxos[0];
+    first_utxo.assign(&Pubkey([5;32]));
     msg!("Hello from msg");
 
     return Ok(())

@@ -51,6 +51,7 @@ impl MessageProcessor {
                     index_in_callee,
                 });
             }
+            println!("InstructionAccounts; {:?}\n", instruction_utxos);
             invoke_context.process_instruction(&instruction.data, &instruction_utxos,instruction.program_id.as_ref());
         }
 

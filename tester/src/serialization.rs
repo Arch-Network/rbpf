@@ -295,7 +295,7 @@ pub fn deserialize_parameters(
             .ok_or(InstructionError::InvalidArgument)?;
 
             if borrowed_account.get_authority().to_bytes() != authority {
-                // Change the owner at the end so that we are allowed to change the lamports and data before
+                // Change the owner at the end so that we are allowed to change the data before
                 borrowed_account.set_authority(authority)?;
             }
         }
@@ -318,7 +318,7 @@ mod tests {
         use core_types::types::Instruction;
         let instruction_a: Instruction = Instruction {
             program_id: Pubkey([0u8;32]),
-            utxos: vec![0,1,2],
+            utxos: vec![1,1,0],
             data: vec![1,2,3]
         };
         let message : Message = Message { signers: vec![], instructions: vec![instruction_a] };
@@ -329,7 +329,7 @@ mod tests {
         let utxos = TransactionUtxos::from(vec![utxo_a,utxo_b]);
         let mut transaction_context : TransactionContext = TransactionContext::new(utxos, 4, 20);
 
-        let mut file = File::open("./compiled-ebpf/simple.so").expect("can't read the elf file");
+        let mut file = File::open("./compiled-ebpf/change-authority-for-first-utxo.so").expect("can't read the elf file");
 
         let mut elf = Vec::new();
         file.read_to_end(&mut elf).unwrap();
@@ -349,20 +349,20 @@ mod tests {
             index_in_callee :1
         };
 
-        let instruction_utxo_c = InstructionUtxo {
-            index_in_transaction: 2,
-            index_in_caller : 2,
-            index_in_callee : 2
-        };
 
         let instruction_context =   InstructionContext {
             nesting_level : 0,
             instruction_data : vec![1,2,3],
-            instruction_utxos: vec![instruction_utxo_a, instruction_utxo_b, instruction_utxo_c],
+            instruction_utxos: vec![instruction_utxo_a, instruction_utxo_b],
             program_id: Pubkey([0;32]),
         };
 
-        let (parameter_bytes, serialised_accounts) =serialize_parameters(&transaction_context, &instruction_context).expect("Can't serealise");
-        // let _ = MessageProcessor::process_message(message, &mut transaction_context, programs).expect("Failed message processing");
+        // let (parameter_bytes, serialised_accounts) =serialize_parameters(&transaction_context, &instruction_context).expect("Can't serealise");
+
+        // println!("bytes: {:?}\nserialised_accounts:{:?}",parameter_bytes.as_slice(),serialised_accounts);
+        let _ = MessageProcessor::process_message(message, &mut transaction_context, programs).expect("Failed message processing");
+
+        println!("{:?}",transaction_context);
+
     }
 }
