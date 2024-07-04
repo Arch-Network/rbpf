@@ -329,7 +329,7 @@ mod tests {
         let utxos = TransactionUtxos::from(vec![utxo_a,utxo_b]);
         let mut transaction_context : TransactionContext = TransactionContext::new(utxos, 4, 20);
 
-        let mut file = File::open("./compiled-ebpf/change-authority-for-first-utxo.so").expect("can't read the elf file");
+        let mut file = File::open("./compiled-ebpf/change-utxo-data.so").expect("can't read the elf file");
 
         let mut elf = Vec::new();
         file.read_to_end(&mut elf).unwrap();
