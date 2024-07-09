@@ -318,7 +318,7 @@ mod tests {
         use core_types::types::Instruction;
         let instruction_a: Instruction = Instruction {
             program_id: Pubkey([0u8;32]),
-            utxos: vec![1,1,0],
+            utxos: vec![0,1,0],
             data: vec![1,2,3]
         };
         let message : Message = Message { signers: vec![], instructions: vec![instruction_a] };

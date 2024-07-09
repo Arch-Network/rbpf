@@ -2,7 +2,7 @@ use std::{alloc::Layout, mem::{align_of, size_of}, slice::{self, from_raw_parts_
 
 use solana_rbpf::{declare_builtin_function, error::EbpfError, memory_region::{AccessType, MemoryMapping, MemoryRegion}, program::{BuiltinFunction, BuiltinProgram, FunctionRegistry}, vm::{Config}};
 
-use crate::processor::InvokeContext;
+use crate::{cpi::SyscallInvokeSignedRust, processor::InvokeContext};
 
 type Error = Box<dyn std::error::Error>;
 
@@ -163,7 +163,7 @@ pub fn create_program_runtime_environment_v1<'a>(
 
     // Cross-program invocation
     // result.register_function_hashed(*b"sol_invoke_signed_c", SyscallInvokeSignedC::vm)?;
-    // result.register_function_hashed(*b"sol_invoke_signed_rust", SyscallInvokeSignedRust::vm)?;
+    result.register_function_hashed(*b"sol_invoke_signed_rust", SyscallInvokeSignedRust::vm)?;
 
     // Memory allocator
     // register_feature_gated_function!(
@@ -263,7 +263,7 @@ fn translate_type_mut<'a, T>(
 ) -> Result<&'a mut T, Error> {
     translate_type_inner::<T>(memory_mapping, AccessType::Store, vm_addr, check_aligned)
 }
-fn translate_type<'a, T>(
+pub fn translate_type<'a, T>(
     memory_mapping: &MemoryMapping,
     vm_addr: u64,
     check_aligned: bool,

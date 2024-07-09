@@ -1,9 +1,8 @@
 use core::fmt;
 use std::{alloc::Layout, cell::{RefCell, RefMut}, collections::HashMap, env::current_exe, rc::Rc, sync::Arc};
 
-use core_types::{entrypoint::MAX_PERMITTED_DATA_LENGTH, types::{Instruction, Pubkey, Transaction, UtxoMeta}};
+use core_types::{entrypoint::MAX_PERMITTED_DATA_LENGTH, types::{Instruction, Pubkey, StableInstruction, Transaction, UtxoMeta}, UtxoIdentity};
 use sha256::digest;
-use solana_program::address_lookup_table::instruction;
 use solana_rbpf::{aligned_memory::AlignedMemory, ebpf::{self, MM_HEAP_START}, elf::Executable, memory_region::{MemoryMapping, MemoryRegion}, verifier::RequisiteVerifier, vm::{ContextObject, EbpfVm}};
 
 use crate::{config::create_program_runtime_environment_v1, errors::{InstructionError, TransactionError}, serialization::{deserialize_parameters, serialize_parameters}};
@@ -101,7 +100,7 @@ pub struct SyscallContext {
 }
 
 pub struct InvokeContext<'a> {
-    transaction_context : &'a mut TransactionContext,
+    pub transaction_context : &'a mut TransactionContext,
     /*log_collector: Option<Rc<RefCell<LogCollector>>>,*/
     programs : HashMap<String,Vec<u8>>,
     compute_meter: RefCell<u64>,
@@ -141,6 +140,20 @@ impl<'a> InvokeContext<'a> {
             syscall_context: Vec::new(),
         }
     }
+
+    pub fn prepare_instruction(&mut self,
+        instruction: &StableInstruction) /*-> Result<Vec<InstructionUtxo>, InstructionError> */{
+            
+        let instruction_context = self.transaction_context.get_current_instruction_context();
+        let mut deduplicated_instruction_accounts: Vec<InstructionUtxo> = Vec::new();
+        let mut duplicate_indicies = Vec::with_capacity(instruction.utxos.len());
+
+        for (instruction_account_index, account_meta) in instruction.utxos.iter().enumerate() {
+
+            let index_in_txn = self.transaction_context.find_index
+        }
+    }
+
     pub fn process_instruction(
         &mut self,
         instruction_data: &[u8],
@@ -185,6 +198,8 @@ impl<'a> InvokeContext<'a> {
     ) -> Result<(), InstructionError> {
 
         let (mut parameter_bytes,serialized_accounts) = serialize_parameters(&self.transaction_context,  self.transaction_context.get_current_instruction_context())?;
+
+        println!("Serialised accounts: {:?}\n", serialized_accounts);
         // Part One: Transaction Procesing
         
         // elf file
@@ -310,6 +325,12 @@ pub struct UtxoSharedData {
     vout: u32
 }
 
+impl UtxoIdentity for UtxoSharedData {
+    fn utxo_id(&self) -> core_types::UtxoId {
+        <Self as UtxoIdentity>::processor(&self.txid, self.vout)
+    }
+}
+
 impl UtxoSharedData {
     pub fn create(
         data: Vec<u8>,
@@ -330,6 +351,7 @@ impl UtxoSharedData {
     fn copy_into_authority_from_slice(&mut self, source: &[u8]) {
         self.authority.as_mut().copy_from_slice(source);
     }
+
 }
 
 impl TransactionContext {
@@ -434,6 +456,10 @@ impl TransactionContext {
             .unwrap();
 
         self.get_instruction_context_at_nesting_level(level)
+    }
+
+    pub fn find_index_of_utxo(&self, pubkey: &Pubkey) -> Option<IndexOfUtxo> {
+       let a =  self.utxos
     }
        
 }

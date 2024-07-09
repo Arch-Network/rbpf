@@ -9,3 +9,4 @@ edition = "2021"
 borsh = { version = "1.5.1" , features = ["derive"]}
 thiserror = "1.0.61"
 rustversion = "1.0.14"
+memoffset = "0.9.1"

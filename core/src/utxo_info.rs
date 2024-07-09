@@ -1,7 +1,7 @@
 use core::fmt;
 use std::{cell::{Ref, RefCell, RefMut}, rc::Rc, slice::from_raw_parts_mut};
 
-use crate::{entrypoint::MAX_PERMITTED_DATA_INCREASE, types::Pubkey};
+use crate::{entrypoint::MAX_PERMITTED_DATA_INCREASE, types::Pubkey, UtxoIdentity};
 
 use crate::{debug_utxo_data::debug_account_data, program_error::ProgramError};
 
@@ -19,6 +19,11 @@ pub struct UtxoInfo<'a> {
     pub vout: u32
 }
 
+impl<'a> UtxoIdentity for UtxoInfo<'a> {
+    fn utxo_id(&self) -> crate::UtxoId {
+        <Self as UtxoIdentity>::processor(&self.txid, self.vout)
+    }
+}
 
 impl<'a> fmt::Debug for UtxoInfo<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

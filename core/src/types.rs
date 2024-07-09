@@ -2,6 +2,9 @@ use std::{cell::RefCell, collections::HashMap, hash::Hash};
 use std::convert::AsRef;
 use borsh::{BorshDeserialize,  BorshSerialize};
 
+use crate::stable_vec::StableVec;
+use crate::UtxoId;
+
 
 #[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone, Eq, Default, Hash, Copy)]
 pub struct Pubkey(pub [u8; 32]);
@@ -55,6 +58,31 @@ pub struct Instruction {
     pub program_id: Pubkey,
     pub utxos: Vec<u16>,
     pub data: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
+pub struct ProgramInstruction {
+    pub program_id: Pubkey,
+    pub utxos: Vec<UtxoId>,
+    pub data: Vec<u8>,
+}
+
+#[derive(Debug, PartialEq)]
+#[repr(C)]
+pub struct StableInstruction {
+    pub utxos: StableVec<UtxoId>,
+    pub data: StableVec<u8>,
+    pub program_id: Pubkey,
+}
+
+impl From<ProgramInstruction> for StableInstruction {
+    fn from(other: ProgramInstruction) -> Self {
+        Self {
+            utxos: other.utxos.into(),
+            data: other.data.into(),
+            program_id: other.program_id,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, BorshSerialize, BorshDeserialize)]

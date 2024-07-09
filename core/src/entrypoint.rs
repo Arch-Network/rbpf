@@ -2,7 +2,7 @@ use std::{alloc::Layout, cell::RefCell, collections::HashMap, mem::size_of, ptr:
 use borsh::from_slice;
 extern crate alloc;
 use alloc::vec::Vec;
-use crate::{types::*, utxo_info::UtxoInfo};
+use crate::{program_error::ProgramError, types::*, utxo_info::UtxoInfo};
 /// Start address of the memory region used for program heap.
 pub const HEAP_START_ADDRESS: u64 = 0x300000000;
 /// Length of the heap memory region used for program heap.
@@ -17,6 +17,11 @@ pub const BPF_ALIGN_OF_U128: usize = 8;
 /// Maximum number of instruction utxos that can be serialized into the
 /// SBF VM.
 pub const NON_DUP_MARKER: u8 = u8::MAX;
+
+pub type ProgramResult = Result<(), ProgramError>;
+
+/// Programs indicate success with a return value of 0
+pub const SUCCESS: u64 = 0;
 
 /// The bump allocator used as the default rust heap when running programs.
 pub struct BumpAllocator {

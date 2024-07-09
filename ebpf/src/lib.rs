@@ -16,9 +16,9 @@ pub fn process_instruction(
 
 
     let first_utxo = &utxos[0];
-    first_utxo.realloc(15, false);
-    first_utxo.try_borrow_mut_data().unwrap().as_mut().copy_from_slice(&[15u8;15]);
-    msg!("Hello from msg");
+    // first_utxo.realloc(15, false);
+    // first_utxo.try_borrow_mut_data().unwrap().as_mut().copy_from_slice(&[15u8;15]);
+    let data = first_utxo.try_borrow_mut_data();
 
     return Ok(())
 }
