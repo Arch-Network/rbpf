@@ -1,8 +1,8 @@
 use std::{fs::File, io::Read, mem::size_of, slice::from_raw_parts_mut, sync::Arc};
-mod serialise;
 mod consts;
-mod types;
 mod error;
+mod serialise;
+mod types;
 use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use solana_rbpf::{
     assembler::assemble,

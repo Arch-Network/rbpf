@@ -6,7 +6,7 @@ use solana_rbpf::{
     memory_region::{MemoryRegion, MemoryState},
 };
 
-use crate::{consts::*, types::*, error::*};
+use crate::{consts::*, error::*, types::*};
 
 /// TODO:
 /// Define a better format for serde,

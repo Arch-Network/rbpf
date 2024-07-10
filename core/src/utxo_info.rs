@@ -1,5 +1,9 @@
 use core::fmt;
-use std::{cell::{Ref, RefCell, RefMut}, rc::Rc, slice::from_raw_parts_mut};
+use std::{
+    cell::{Ref, RefCell, RefMut},
+    rc::Rc,
+    slice::from_raw_parts_mut,
+};
 
 use crate::{entrypoint::MAX_PERMITTED_DATA_INCREASE, types::Pubkey, UtxoIdentity};
 
@@ -14,9 +18,9 @@ pub struct UtxoInfo<'a> {
     /// Program that owns this utxo
     pub authority: &'a Pubkey,
     /// txid of btc transaction
-    pub txid: &'a [u8;32],
+    pub txid: &'a [u8; 32],
     /// vout in btc txn
-    pub vout: u32
+    pub vout: u32,
 }
 
 impl<'a> UtxoIdentity for UtxoInfo<'a> {
@@ -29,7 +33,7 @@ impl<'a> fmt::Debug for UtxoInfo<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut f = f.debug_struct("UtxoInfo");
 
-            f.field("txid", &self.txid)
+        f.field("txid", &self.txid)
             .field("vout", &self.vout)
             .field("authority", &self.authority)
             .field("data.len", &self.data_len());
@@ -40,21 +44,15 @@ impl<'a> fmt::Debug for UtxoInfo<'a> {
 }
 
 impl<'a> UtxoInfo<'a> {
-
-    pub fn new(
-        data: &'a mut [u8],
-        authority : &'a Pubkey,
-        txid: &'a [u8;32],
-        vout: u32
-    ) -> Self {
+    pub fn new(data: &'a mut [u8], authority: &'a Pubkey, txid: &'a [u8; 32], vout: u32) -> Self {
         Self {
             data: Rc::new(RefCell::new(data)),
             authority,
             txid,
-            vout
+            vout,
         }
     }
-    
+
     pub fn data_len(&self) -> usize {
         self.data.borrow().len()
     }

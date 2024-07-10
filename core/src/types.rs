@@ -1,10 +1,9 @@
-use std::{cell::RefCell, collections::HashMap, hash::Hash};
+use borsh::{BorshDeserialize, BorshSerialize};
 use std::convert::AsRef;
-use borsh::{BorshDeserialize,  BorshSerialize};
+use std::{cell::RefCell, collections::HashMap, hash::Hash};
 
 use crate::stable_vec::StableVec;
 use crate::UtxoId;
-
 
 #[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone, Eq, Default, Hash, Copy)]
 pub struct Pubkey(pub [u8; 32]);
@@ -120,9 +119,9 @@ pub struct Output {
 
 #[derive(Clone, Debug, Eq, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct VmInput {
-    pub instruction : Instruction,
-    pub authority : HashMap<String, Vec<u8>>,
-    pub data : HashMap<String, Vec<u8>>,
+    pub instruction: Instruction,
+    pub authority: HashMap<String, Vec<u8>>,
+    pub data: HashMap<String, Vec<u8>>,
 }
 
 // TODO: Delete

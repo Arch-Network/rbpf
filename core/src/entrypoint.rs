@@ -1,8 +1,16 @@
-use std::{alloc::Layout, cell::RefCell, collections::HashMap, mem::size_of, ptr::null_mut, rc::Rc, slice::{from_raw_parts, from_raw_parts_mut}};
 use borsh::from_slice;
+use std::{
+    alloc::Layout,
+    cell::RefCell,
+    collections::HashMap,
+    mem::size_of,
+    ptr::null_mut,
+    rc::Rc,
+    slice::{from_raw_parts, from_raw_parts_mut},
+};
 extern crate alloc;
-use alloc::vec::Vec;
 use crate::{program_error::ProgramError, types::*, utxo_info::UtxoInfo};
+use alloc::vec::Vec;
 /// Start address of the memory region used for program heap.
 pub const HEAP_START_ADDRESS: u64 = 0x300000000;
 /// Length of the heap memory region used for program heap.
@@ -70,18 +78,18 @@ pub unsafe fn deserialize<'a>(input: *mut u8) -> (&'a Pubkey, Vec<UtxoInfo<'a>>,
         offset += size_of::<u8>();
         if dup_info == NON_DUP_MARKER {
             offset += 3 * size_of::<u8>();
-            
+
             let vout = *(input.add(offset) as *const u32);
             offset += size_of::<u32>();
 
-            let txid = &*(input.add(offset) as *const [u8;32]);
-            offset += size_of::<[u8;32]>();
+            let txid = &*(input.add(offset) as *const [u8; 32]);
+            offset += size_of::<[u8; 32]>();
 
             //skipping original data_len
-            offset +=  size_of::<u64>();
+            offset += size_of::<u64>();
 
             let data_len = *(input.add(offset) as *const u64) as usize;
-            offset +=  size_of::<u64>();
+            offset += size_of::<u64>();
 
             let data = Rc::new(RefCell::new({
                 from_raw_parts_mut(input.add(offset), data_len)
@@ -97,7 +105,7 @@ pub unsafe fn deserialize<'a>(input: *mut u8) -> (&'a Pubkey, Vec<UtxoInfo<'a>>,
                 data,
                 authority,
                 txid,
-                vout
+                vout,
             });
         } else {
             offset += 7; // padding
@@ -107,23 +115,21 @@ pub unsafe fn deserialize<'a>(input: *mut u8) -> (&'a Pubkey, Vec<UtxoInfo<'a>>,
         }
     }
 
-        // Instruction data
+    // Instruction data
 
-        #[allow(clippy::cast_ptr_alignment)]
-        let instruction_data_len = *(input.add(offset) as *const u64) as usize;
-        offset += size_of::<u64>();
-    
-        let instruction_data = { from_raw_parts(input.add(offset), instruction_data_len) };
-        offset += instruction_data_len;
-    
-        // Program Id
-    
-        let program_id: &Pubkey = &*(input.add(offset) as *const Pubkey);
-    
-        (program_id, utxos, instruction_data)
+    #[allow(clippy::cast_ptr_alignment)]
+    let instruction_data_len = *(input.add(offset) as *const u64) as usize;
+    offset += size_of::<u64>();
 
-}   
-   
+    let instruction_data = { from_raw_parts(input.add(offset), instruction_data_len) };
+    offset += instruction_data_len;
+
+    // Program Id
+
+    let program_id: &Pubkey = &*(input.add(offset) as *const Pubkey);
+
+    (program_id, utxos, instruction_data)
+}
 
 #[macro_export]
 macro_rules! entrypoint {
@@ -142,14 +148,11 @@ macro_rules! entrypoint {
                     return 1;
                 }
             }
-
         }
         $crate::custom_heap_default!();
         // $crate::custom_panic_default!();
-
     };
 }
-
 
 #[macro_export]
 macro_rules! custom_heap_default {
@@ -175,79 +178,75 @@ macro_rules! define_syscall {
 
 define_syscall!(fn sol_log_(message: *const u8, len: u64));
 
-
 mod Test {
     use super::*;
 
-//     #[test]
-//     fn test_entrypoint() {
-//         // #[global_allocator]
-//         // static A: BumpAllocator = BumpAllocator {
-//         //     start: HEAP_START_ADDRESS as usize,
-//         //     len: HEAP_LENGTH,
-//         // };
+    //     #[test]
+    //     fn test_entrypoint() {
+    //         // #[global_allocator]
+    //         // static A: BumpAllocator = BumpAllocator {
+    //         //     start: HEAP_START_ADDRESS as usize,
+    //         //     len: HEAP_LENGTH,
+    //         // };
 
-//         let mut mem = construct_data();
-//         println!("input data len {}", mem.len());
-//         unsafe {entrypoint(mem.as_mut_ptr()); }
+    //         let mut mem = construct_data();
+    //         println!("input data len {}", mem.len());
+    //         unsafe {entrypoint(mem.as_mut_ptr()); }
 
-//         let size = unsafe { *(mem.as_mut_ptr() as *mut u32)};
+    //         let size = unsafe { *(mem.as_mut_ptr() as *mut u32)};
 
-//         println!("final {:?}", borsh::from_slice::<(HashMap<String,Vec<u8>>, HashMap<String,Vec<u8>>,Transaction)>(&mem[4..size as usize + 4 ]));
+    //         println!("final {:?}", borsh::from_slice::<(HashMap<String,Vec<u8>>, HashMap<String,Vec<u8>>,Transaction)>(&mem[4..size as usize + 4 ]));
 
-//         }
+    //         }
 
-//     pub fn process_instruction(program_id: Pubkey, utxos : &[UtxoInfo], instruction_data : &Vec<u8>) -> Result<Transaction,String> {
+    //     pub fn process_instruction(program_id: Pubkey, utxos : &[UtxoInfo], instruction_data : &Vec<u8>) -> Result<Transaction,String> {
 
-//         let txin = TxIn {
-//             txid: String::from("abcdef"),
-//             vout:1,
-//             script_sig: [12u8;32].to_vec(),
-//             sequence: 5,
-//             witness: vec![[12u8;32].to_vec(), [22u8;34].to_vec()]
-//        };
-   
-//        let txout = TxOut {
-//            amount: 10240,
-//            script_pubkey: [122u8;64].to_vec(),
-//        };
-   
-//        return Ok(Transaction {
-//            version: 1,
-//            input: vec![txin],
-//            output: vec![txout],
-//            lock_time: 15,
-//        })
-//     }
+    //         let txin = TxIn {
+    //             txid: String::from("abcdef"),
+    //             vout:1,
+    //             script_sig: [12u8;32].to_vec(),
+    //             sequence: 5,
+    //             witness: vec![[12u8;32].to_vec(), [22u8;34].to_vec()]
+    //        };
 
-//     pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
-//         use std::collections::HashMap;
-//         let (program_id, utxos, instruction_data) =
-//             unsafe { deserialize(input) };
-//         match process_instruction(program_id, &utxos, &instruction_data) {
-//             Ok(tx_hex) => {
-//                 let mut new_authorities: HashMap<String, Vec<u8>> = HashMap::new();
-//                 let mut new_data: HashMap<String, Vec<u8>> = HashMap::new();
-//                 utxos.iter().for_each(|utxo| {
-//                     new_authorities.insert(utxo.id(), utxo.authority.clone().into_inner().0);
-//                     new_data.insert(utxo.id(), utxo.data.clone().into_inner());
-//                 });
-//                let mut serialised_output = borsh::to_vec(&(new_authorities, new_data, tx_hex)).unwrap();
-//                 let output_len = serialised_output.len();
-//                 println!("output length is {}", output_len);
-//                 unsafe {*(input as *mut u32) = output_len as u32;}
+    //        let txout = TxOut {
+    //            amount: 10240,
+    //            script_pubkey: [122u8;64].to_vec(),
+    //        };
 
-//                 unsafe {
-//                     std::ptr::copy_nonoverlapping(serialised_output.as_mut_ptr(),input.add(4),output_len);
-//                 }
-//                 return 0;
-//             }
-//             Err(e) => {
-//                 return 1;
-//             }
-//         }
-// }
+    //        return Ok(Transaction {
+    //            version: 1,
+    //            input: vec![txin],
+    //            output: vec![txout],
+    //            lock_time: 15,
+    //        })
+    //     }
 
+    //     pub unsafe extern "C" fn entrypoint(input: *mut u8) -> u64 {
+    //         use std::collections::HashMap;
+    //         let (program_id, utxos, instruction_data) =
+    //             unsafe { deserialize(input) };
+    //         match process_instruction(program_id, &utxos, &instruction_data) {
+    //             Ok(tx_hex) => {
+    //                 let mut new_authorities: HashMap<String, Vec<u8>> = HashMap::new();
+    //                 let mut new_data: HashMap<String, Vec<u8>> = HashMap::new();
+    //                 utxos.iter().for_each(|utxo| {
+    //                     new_authorities.insert(utxo.id(), utxo.authority.clone().into_inner().0);
+    //                     new_data.insert(utxo.id(), utxo.data.clone().into_inner());
+    //                 });
+    //                let mut serialised_output = borsh::to_vec(&(new_authorities, new_data, tx_hex)).unwrap();
+    //                 let output_len = serialised_output.len();
+    //                 println!("output length is {}", output_len);
+    //                 unsafe {*(input as *mut u32) = output_len as u32;}
 
-
+    //                 unsafe {
+    //                     std::ptr::copy_nonoverlapping(serialised_output.as_mut_ptr(),input.add(4),output_len);
+    //                 }
+    //                 return 0;
+    //             }
+    //             Err(e) => {
+    //                 return 1;
+    //             }
+    //         }
+    // }
 }

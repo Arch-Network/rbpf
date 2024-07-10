@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use crate::consts::PUBKEY_BYTES;
+use std::sync::Arc;
 
 pub struct AccountSharedData {
     /// lamports in the account

@@ -2,7 +2,6 @@ mod definitions;
 
 pub use definitions::*;
 
-
 /// Maximum CPI instruction data size. 10 KiB was chosen to ensure that CPI
 /// instructions are not more limited than transaction instructions if the size
 /// of transactions is doubled in the future.

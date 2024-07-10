@@ -229,7 +229,7 @@ fn address_is_aligned<T>(address: u64) -> bool {
         .expect("T to be non-zero aligned")
 }
 
-fn translate(
+pub fn translate(
     memory_mapping: &MemoryMapping,
     access_type: AccessType,
     vm_addr: u64,
@@ -256,7 +256,7 @@ fn translate_type_inner<'a, T>(
         Ok(unsafe { &mut *(host_addr as *mut T) })
     }
 }
-fn translate_type_mut<'a, T>(
+pub fn translate_type_mut<'a, T>(
     memory_mapping: &MemoryMapping,
     vm_addr: u64,
     check_aligned: bool,
@@ -295,7 +295,7 @@ fn translate_slice_inner<'a, T>(
     }
     Ok(unsafe { from_raw_parts_mut(host_addr as *mut T, len as usize) })
 }
-fn translate_slice_mut<'a, T>(
+pub fn translate_slice_mut<'a, T>(
     memory_mapping: &MemoryMapping,
     vm_addr: u64,
     len: u64,
@@ -309,7 +309,7 @@ fn translate_slice_mut<'a, T>(
         check_aligned,
     )
 }
-fn translate_slice<'a, T>(
+pub fn translate_slice<'a, T>(
     memory_mapping: &MemoryMapping,
     vm_addr: u64,
     len: u64,

@@ -10,6 +10,7 @@ mod processor;
 mod serialization;
 mod errors;
 mod program_error;
+mod syscall_error;
 fn main() {
 
 }

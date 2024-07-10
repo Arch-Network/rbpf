@@ -21,12 +21,12 @@
 //         //      sequence: 5,
 //         //      witness: vec![[12u8;32].to_vec(), [22u8;34].to_vec()]
 //         // };
-    
+
 //         // let txout = TxOut {
 //         //     amount: 10240,
 //         //     script_pubkey: [122u8;64].to_vec(),
 //         // };
-    
+
 //         // return Ok(Transaction {
 //         //     version: 1,
 //         //     input: vec![txin],

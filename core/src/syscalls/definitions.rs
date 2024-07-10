@@ -1,4 +1,3 @@
-
 macro_rules! define_syscall {
     (fn $name:ident($($arg:ident: $typ:ty),*) -> $ret:ty) => {
 		#[inline]

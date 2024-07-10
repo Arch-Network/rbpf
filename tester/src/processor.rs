@@ -1,7 +1,7 @@
 use core::fmt;
-use std::{alloc::Layout, cell::{RefCell, RefMut}, collections::HashMap, env::current_exe, rc::Rc, sync::Arc};
+use std::{alloc::Layout, cell::{RefCell, RefMut}, collections::HashMap, env::current_exe, ops::Deref, rc::Rc, sync::Arc};
 
-use core_types::{entrypoint::MAX_PERMITTED_DATA_LENGTH, types::{Instruction, Pubkey, StableInstruction, Transaction, UtxoMeta}, UtxoIdentity};
+use core_types::{entrypoint::MAX_PERMITTED_DATA_LENGTH, types::{Instruction, Pubkey, StableInstruction, Transaction, UtxoMeta}, UtxoId, UtxoIdentity};
 use sha256::digest;
 use solana_rbpf::{aligned_memory::AlignedMemory, ebpf::{self, MM_HEAP_START}, elf::Executable, memory_region::{MemoryMapping, MemoryRegion}, verifier::RequisiteVerifier, vm::{ContextObject, EbpfVm}};
 
@@ -96,6 +96,7 @@ impl BpfAllocator {
 
 pub struct SyscallContext {
     pub allocator: BpfAllocator,
+    pub accounts_metadata: Vec<SerializedUtxoMetadata>,
     pub trace_log: Vec<[u64; 12]>,
 }
 
@@ -141,17 +142,65 @@ impl<'a> InvokeContext<'a> {
         }
     }
 
-    pub fn prepare_instruction(&mut self,
-        instruction: &StableInstruction) /*-> Result<Vec<InstructionUtxo>, InstructionError> */{
+    // Get this instruction's SyscallContext
+    pub fn get_syscall_context(&self) -> Result<&SyscallContext, InstructionError> {
+        self.syscall_context
+            .last()
+            .and_then(std::option::Option::as_ref)
+            .ok_or(InstructionError::CallDepth)
+    }
+
+    pub fn prepare_instruction(
+        &mut self,
+        instruction: &StableInstruction
+    ) -> Result<Vec<InstructionUtxo>, InstructionError> {
             
         let instruction_context = self.transaction_context.get_current_instruction_context();
         let mut deduplicated_instruction_accounts: Vec<InstructionUtxo> = Vec::new();
         let mut duplicate_indicies = Vec::with_capacity(instruction.utxos.len());
 
-        for (instruction_account_index, account_meta) in instruction.utxos.iter().enumerate() {
+        for (instruction_utxo_index, utxo_id) in instruction.utxos.iter().enumerate() {
 
-            let index_in_txn = self.transaction_context.find_index
+            let index_in_transaction = self.transaction_context.find_index_of_utxo(&utxo_id).ok_or_else(|| InstructionError::MissingAccount)?;
+
+            if let Some(duplicate_index) =
+                deduplicated_instruction_accounts
+                    .iter()
+                    .position(|instruction_account| {
+                        instruction_account.index_in_transaction == index_in_transaction
+                    })
+            {
+                duplicate_indicies.push(duplicate_index);
+            } else {
+                let index_in_caller = instruction_context
+                .find_index_of_instruction_account(
+                    self.transaction_context,
+                    &utxo_id,
+                )
+                .ok_or_else(|| {
+                    InstructionError::MissingAccount
+                })?;
+
+                duplicate_indicies.push(deduplicated_instruction_accounts.len());
+                deduplicated_instruction_accounts.push(InstructionUtxo {
+                    index_in_transaction,
+                    index_in_caller,
+                    index_in_callee: instruction_utxo_index as IndexOfUtxo,
+                });
+            }
         }
+
+        let instruction_accounts = duplicate_indicies
+            .into_iter()
+            .map(|duplicate_index| {
+                Ok(deduplicated_instruction_accounts
+                    .get(duplicate_index)
+                    .ok_or(InstructionError::NotEnoughAccountKeys)?
+                    .clone())
+            })
+            .collect::<Result<Vec<InstructionUtxo>, InstructionError>>()?;
+
+        Ok(instruction_accounts)
     }
 
     pub fn process_instruction(
@@ -257,8 +306,6 @@ impl<'a> InvokeContext<'a> {
 
         Ok(())
     }
-
-
 }
 
 #[derive(Debug, Clone)]
@@ -295,11 +342,17 @@ impl TransactionUtxos {
         utxos : utxos.iter().map(
             |utxo| RefCell::new(utxo.clone())
         ).collect::<Vec<RefCell<UtxoSharedData>>>()
+        }   
     }
-}
 
     pub fn get(&self, index: IndexOfUtxo) -> Option<&RefCell<UtxoSharedData>> {
         self.utxos.get(index as usize)
+    }
+
+    pub fn find_index_of_transaction_utxo_by_utxo_id(&self, utxo_id :&UtxoId ) -> Option<IndexOfUtxo> {
+        self.utxos.iter().position(|utxo| {
+            utxo.borrow().utxo_id() == *utxo_id
+        })
     }    
 }
 
@@ -403,19 +456,6 @@ impl TransactionContext {
 
     }
 
-    // pub fn update_utxo_authority(&mut self, id: &String,value : &Vec<u8>) -> Result<(), String> {
-    //     let mut authority = self.authorities.get_mut(id).ok_or::<String>("no matching authority found".into())?;
-    //     *authority = (*value.clone()).to_vec();
-
-    //     Ok(())
-    // }
-
-    // pub fn update_utxo_data(&mut self, id: &String,value : &Vec<u8>) -> Result<(), String> {
-    //     let mut authority = self.data.get_mut(id).ok_or::<String>("no matching data found".into())?;
-    //     *authority = (*value.clone()).to_vec();
-
-    //     Ok(())
-    // }
     pub fn get_instruction_context_stack_height(&self) -> usize {
         self.instruction_stack.len()
     }
@@ -442,6 +482,19 @@ impl TransactionContext {
             
     }
 
+     /// Searches for an utxo by its utxo_id
+     pub fn get_id_of_utxo_at_index(
+        &self,
+        index_in_transaction: IndexOfUtxo,
+    ) -> Result<UtxoId, InstructionError> {
+        self.utxos
+            .get(index_in_transaction as usize)
+            .ok_or(InstructionError::NotEnoughAccountKeys)
+            .map(|utxo| 
+                utxo.borrow().utxo_id()
+            )
+    }
+
     pub fn get_next_instruction_context(
         &mut self,
     ) -> &mut InstructionContext {
@@ -458,8 +511,8 @@ impl TransactionContext {
         self.get_instruction_context_at_nesting_level(level)
     }
 
-    pub fn find_index_of_utxo(&self, pubkey: &Pubkey) -> Option<IndexOfUtxo> {
-       let a =  self.utxos
+    pub fn find_index_of_utxo(&self, utxo_id: &UtxoId) -> Option<IndexOfUtxo> {
+        self.utxos.find_index_of_transaction_utxo_by_utxo_id(utxo_id)
     }
        
 }
@@ -561,8 +614,26 @@ impl InstructionContext {
             utxo,
         })
     }
-}
 
+      /// Searches for an instruction utxo by its utxo_id
+      pub fn find_index_of_instruction_account(
+        &self,
+        transaction_context: &TransactionContext,
+        utxo_id: &UtxoId,
+    ) -> Option<IndexOfUtxo> {
+        self.instruction_utxos
+            .iter()
+            .position(|instruction_utxo| {
+                transaction_context
+                    .utxos
+                    .get(instruction_utxo.index_in_transaction).map(|utxo_shared_data| 
+                        utxo_shared_data.borrow().utxo_id())
+                    == Some(utxo_id.clone())
+            })
+            .map(|index| index as IndexOfUtxo)
+          
+    }
+}
 /// Shared account borrowed from the TransactionContext and an InstructionContext.
 #[derive(Debug)]
 pub struct BorrowedUtxo<'a> {
