@@ -238,7 +238,7 @@ impl SyscallInvokeSigned for SyscallInvokeSignedRust {
         let (account_infos, account_info_keys) = translate_account_infos(
             account_infos_addr,
             account_infos_len,
-            |account_info: &UtxoInfo| (account_info.txid as *const _ as u64, &account_info.vout as *const _ as u64),
+            |account_info: &UtxoInfo| (account_info.txid as *const _ as u64, account_info.vout  as u64),
             memory_mapping,
             invoke_context,
         )?;

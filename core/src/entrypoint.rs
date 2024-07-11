@@ -79,7 +79,7 @@ pub unsafe fn deserialize<'a>(input: *mut u8) -> (&'a Pubkey, Vec<UtxoInfo<'a>>,
         if dup_info == NON_DUP_MARKER {
             offset += 3 * size_of::<u8>();
 
-            let vout = *(input.add(offset) as *const u32);
+            let vout = &*(input.add(offset) as *const u32);
             offset += size_of::<u32>();
 
             let txid = &*(input.add(offset) as *const [u8; 32]);

@@ -20,12 +20,12 @@ pub struct UtxoInfo<'a> {
     /// txid of btc transaction
     pub txid: &'a [u8; 32],
     /// vout in btc txn
-    pub vout: u32,
+    pub vout: &'a u32,
 }
 
 impl<'a> UtxoIdentity for UtxoInfo<'a> {
     fn utxo_id(&self) -> crate::UtxoId {
-        <Self as UtxoIdentity>::processor(&self.txid, self.vout)
+        <Self as UtxoIdentity>::processor(&self.txid, *self.vout)
     }
 }
 
@@ -44,7 +44,7 @@ impl<'a> fmt::Debug for UtxoInfo<'a> {
 }
 
 impl<'a> UtxoInfo<'a> {
-    pub fn new(data: &'a mut [u8], authority: &'a Pubkey, txid: &'a [u8; 32], vout: u32) -> Self {
+    pub fn new(data: &'a mut [u8], authority: &'a Pubkey, txid: &'a [u8; 32], vout: &'a u32) -> Self {
         Self {
             data: Rc::new(RefCell::new(data)),
             authority,

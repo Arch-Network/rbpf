@@ -302,7 +302,7 @@ impl<'a> InvokeContext<'a> {
         println!("result is {:?}", result);
 
         // PART TWO : POST PROCESSING
-        deserialize_parameters(self.transaction_context,  self.transaction_context.get_current_instruction_context(), parameter_bytes.as_slice(), &serialized_accounts);
+        deserialize_parameters(self.transaction_context,  self.transaction_context.get_current_instruction_context(), parameter_bytes.as_slice(), &serialized_accounts)?;
 
         Ok(())
     }
