@@ -1,7 +1,7 @@
 use core::fmt;
-use std::{alloc::Layout, cell::{RefCell, RefMut}, collections::HashMap, env::current_exe, ops::Deref, rc::Rc, sync::Arc};
+use std::{alloc::Layout, cell::{RefCell, RefMut}, collections::HashMap, env::current_exe, ops::Deref, pin::Pin, rc::Rc, sync::Arc};
 
-use core_types::{entrypoint::MAX_PERMITTED_DATA_LENGTH, types::{Instruction, Pubkey, StableInstruction, Transaction, UtxoMeta}, UtxoId, UtxoIdentity};
+use core_types::{entrypoint::MAX_PERMITTED_DATA_LENGTH, types::{Instruction, Pubkey, StableInstruction, Transaction}, UtxoId, UtxoIdentity};
 use sha256::digest;
 use solana_rbpf::{aligned_memory::AlignedMemory, ebpf::{self, MM_HEAP_START}, elf::Executable, memory_region::{MemoryMapping, MemoryRegion}, verifier::RequisiteVerifier, vm::{ContextObject, EbpfVm}};
 
@@ -20,12 +20,10 @@ impl MessageProcessor {
         programs : HashMap<String,Vec<u8>>,
     )  -> Result<(), TransactionError>{
 
-        let traces = vec![];
         let mut invoke_context = InvokeContext::new(
             transaction_context,
             programs,
             RefCell::new(MAX_COMPUTE_VALUE),
-            traces,
         );
 
         // this is processing of a transaction
@@ -50,8 +48,7 @@ impl MessageProcessor {
                     index_in_callee,
                 });
             }
-            println!("InstructionAccounts; {:?}\n", instruction_utxos);
-            invoke_context.process_instruction(&instruction.data, &instruction_utxos,instruction.program_id.as_ref());
+            invoke_context.process_instruction(&instruction.data, &instruction_utxos,instruction.program_id.as_ref()).expect("failed");
         }
 
         Ok(())
@@ -105,14 +102,12 @@ pub struct InvokeContext<'a> {
     /*log_collector: Option<Rc<RefCell<LogCollector>>>,*/
     programs : HashMap<String,Vec<u8>>,
     compute_meter: RefCell<u64>,
-    traces: Vec<[u64; 12]>,
+    traces: Vec<Vec<[u64; 12]>>,
     pub syscall_context: Vec<Option<SyscallContext>>,
 }
 
 impl<'a> ContextObject for InvokeContext<'a> {
-    fn trace(&mut self, state: [u64; 12]) {
-        self.traces.push(state);
-    }
+    fn trace(&mut self, _state: [u64; 12]) {}
 
     fn consume(&mut self, amount: u64) {
         // 1 to 1 instruction to compute unit mapping
@@ -131,13 +126,12 @@ impl<'a> InvokeContext<'a> {
         transaction_context : &'a mut TransactionContext,
         programs : HashMap<String,Vec<u8>>,
         compute_meter: RefCell<u64>,
-        traces: Vec<[u64; 12]>,
     ) -> Self {
         Self {
             transaction_context,
             programs,
             compute_meter,
-            traces,
+            traces: Vec::new(),
             syscall_context: Vec::new(),
         }
     }
@@ -147,6 +141,14 @@ impl<'a> InvokeContext<'a> {
         self.syscall_context
             .last()
             .and_then(std::option::Option::as_ref)
+            .ok_or(InstructionError::CallDepth)
+    }
+
+    // Get this instruction's SyscallContext
+    pub fn get_syscall_context_mut(&mut self) -> Result<&mut SyscallContext, InstructionError> {
+        self.syscall_context
+            .last_mut()
+            .and_then(|syscall_context| syscall_context.as_mut())
             .ok_or(InstructionError::CallDepth)
     }
 
@@ -219,14 +221,22 @@ impl<'a> InvokeContext<'a> {
             .and(self.pop())
     }
 
-    pub fn get_syscall_context_mut(&mut self) -> Result<&mut SyscallContext, String> {
-        self.syscall_context
+    // Set this instruction syscall context
+    pub fn set_syscall_context(
+        &mut self,
+        syscall_context: SyscallContext,
+    ) -> Result<(), InstructionError> {
+        *self
+            .syscall_context
             .last_mut()
-            .and_then(|syscall_context| syscall_context.as_mut())
-            .ok_or("call Depth error".into())
+            .ok_or(InstructionError::CallDepth)? = Some(syscall_context);
+        Ok(())
     }
 
     pub fn pop(&mut self) -> Result<(), InstructionError> {
+        if let Some(Some(syscall_context)) = self.syscall_context.pop() {
+            self.traces.push(syscall_context.trace_log);
+        }
         self.transaction_context.pop()
     }
 
@@ -237,7 +247,7 @@ impl<'a> InvokeContext<'a> {
             self.transaction_context.get_instruction_trace_length(),
         );
         // TODO : check reentrancy later
-
+        self.syscall_context.push(None);
         self.transaction_context.push()?;
         Ok(())
     }
@@ -248,9 +258,11 @@ impl<'a> InvokeContext<'a> {
 
         let (mut parameter_bytes,serialized_accounts) = serialize_parameters(&self.transaction_context,  self.transaction_context.get_current_instruction_context())?;
 
+        println!("Bytes : {:?}\n\n", parameter_bytes.as_slice());
         println!("Serialised accounts: {:?}\n", serialized_accounts);
         // Part One: Transaction Procesing
         
+        println!("trying to read: {:?}",self.transaction_context.get_current_instruction_context().program_id.clone());
         // elf file
         let elf = self.programs.get(&digest(digest( self.transaction_context.get_current_instruction_context().program_id.as_ref()))).expect("can't find the key associated with the program account");
 
@@ -289,6 +301,12 @@ impl<'a> InvokeContext<'a> {
 
         let memory_mapping =
             MemoryMapping::new(regions, executable.get_config(), sbpf_version).unwrap();
+
+        self.set_syscall_context(SyscallContext {
+            allocator: BpfAllocator::new(heap.len() as u64),
+            trace_log: Vec::new(),
+            accounts_metadata: serialized_accounts.clone(),
+        })?;
     
         let mut vm: EbpfVm<InvokeContext> = EbpfVm::new(
             executable.get_loader().clone(),
@@ -300,6 +318,8 @@ impl<'a> InvokeContext<'a> {
 
         let (instruction_count, result) = vm.execute_program(&executable, true);
         println!("result is {:?}", result);
+
+        println!("Post processing: {:?}", parameter_bytes.as_slice());
 
         // PART TWO : POST PROCESSING
         deserialize_parameters(self.transaction_context,  self.transaction_context.get_current_instruction_context(), parameter_bytes.as_slice(), &serialized_accounts)?;
@@ -321,15 +341,7 @@ pub struct Message {
     pub instructions: Vec<Instruction>,
 }
 
-#[derive(Debug, Clone)]
-pub struct TransactionContext {
-    // instructions: Vec<Instruction>,
-    instruction_stack_capacity: usize,
-    instruction_trace_capacity: usize,
-    instruction_stack: Vec<usize>,
-    instruction_trace: Vec<InstructionContext>,
-    utxos : Rc<TransactionUtxos>
-}
+
 
 #[derive(Debug, Clone)]
 pub struct TransactionUtxos {
@@ -407,14 +419,33 @@ impl UtxoSharedData {
 
 }
 
+pub type TransactionUtxo = (UtxoId, UtxoSharedData);
+
+#[derive(Debug, Clone)]
+pub struct TransactionContext {
+    // instructions: Vec<Instruction>,
+    instruction_stack_capacity: usize,
+    instruction_trace_capacity: usize,
+    instruction_stack: Vec<usize>,
+    instruction_trace: Vec<InstructionContext>,
+    utxo_ids: Pin<Box<[UtxoId]>>,
+    utxos: Rc<TransactionUtxos>,
+}
+
 impl TransactionContext {
     pub fn new(
-        utxos: TransactionUtxos,
+        utxos: Vec<TransactionUtxo>,
         instruction_stack_capacity: usize,
         instruction_trace_capacity: usize,
     ) -> Self {
+
+        let (utxo_id, utxos): (Vec<_>, Vec<_>) = utxos
+        .into_iter()
+        .unzip();
+
             Self {
-                utxos: Rc::new(utxos),
+                utxo_ids : Pin::new(utxo_id.into_boxed_slice()),
+                utxos: Rc::new(TransactionUtxos::from(utxos)),
                 instruction_stack_capacity,
                 instruction_trace_capacity,
                 instruction_stack: Vec::with_capacity(instruction_stack_capacity),
@@ -486,13 +517,10 @@ impl TransactionContext {
      pub fn get_id_of_utxo_at_index(
         &self,
         index_in_transaction: IndexOfUtxo,
-    ) -> Result<UtxoId, InstructionError> {
-        self.utxos
+    ) -> Result<&UtxoId, InstructionError> {
+        self.utxo_ids
             .get(index_in_transaction as usize)
             .ok_or(InstructionError::NotEnoughAccountKeys)
-            .map(|utxo| 
-                utxo.borrow().utxo_id()
-            )
     }
 
     pub fn get_next_instruction_context(

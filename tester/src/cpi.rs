@@ -64,7 +64,26 @@ struct CallerAccount<'a> {
     // Given the corresponding input AccountInfo::data, vm_data_addr points to
     // the pointer field and ref_to_len_in_vm points to the length field.
     vm_data_addr: u64,
-    ref_to_len_in_vm: &'a mut u64,
+    ref_to_len_in_vm: VmValue<'a, u64>,
+}
+
+enum VmValue<'a, T> {
+    Translated(&'a mut T),
+}
+
+
+impl<'a, T> VmValue<'a, T> {
+    fn get(&self) -> Result<&T, Error> {
+        match self {
+            VmValue::Translated(addr) => Ok(*addr),
+        }
+    }
+
+    fn get_mut(&mut self) -> Result<&mut T, Error> {
+        match self {
+            VmValue::Translated(addr) => Ok(*addr),
+        }
+    }
 }
 
 impl<'a,'b> CallerAccount<'a> {
@@ -98,10 +117,11 @@ impl<'a,'b> CallerAccount<'a> {
                         .saturating_add(size_of::<u64>() as u64),
                     8,
                 )? as *mut u64;
-                unsafe { &mut *translated }
+                VmValue::Translated(unsafe { &mut *translated })
             };
-            let vm_data_addr = data.as_ptr() as u64;
 
+            let vm_data_addr = data.as_ptr() as u64;
+            
             let serialized_data = 
             translate_slice_mut::<u8>(
                     memory_mapping,
@@ -121,6 +141,10 @@ impl<'a,'b> CallerAccount<'a> {
                 ref_to_len_in_vm,
             })
         }
+
+    // fn get_ref_to_len_in_vm(&self) -> &u64 {
+
+    // }
 }
 
 
@@ -178,19 +202,19 @@ fn cpi_common<S: SyscallInvokeSigned>(
     let instruction_context = transaction_context.get_current_instruction_context();
 
 
-    for (index_in_caller, caller_account) in accounts.iter_mut() {
+    // for (index_in_caller, caller_account) in accounts.iter_mut() {
 
-            let mut callee_account = instruction_context
-                .try_borrow_instruction_utxo(transaction_context, *index_in_caller)?;
+    //         let mut callee_account = instruction_context
+    //             .try_borrow_instruction_utxo(transaction_context, *index_in_caller)?;
 
-            update_caller_account(
-                invoke_context,
-                memory_mapping,
-                caller_account,
-                &mut callee_account,
-            )?;
+    //         update_caller_account(
+    //             invoke_context,
+    //             memory_mapping,
+    //             caller_account,
+    //             &mut callee_account,
+    //         )?;
         
-    }
+    // }
 
     Ok(SUCCESS)
 
@@ -224,7 +248,30 @@ impl SyscallInvokeSigned for SyscallInvokeSignedRust {
             addr,
             true,
         )?;
-        Err("acb".into())
+        
+        let utxo_metas = translate_slice::<UtxoId>(
+            memory_mapping,
+            ix.utxos.as_ptr() as u64,
+            ix.utxos.len() as u64,
+            true,
+        )?;
+
+        let mut utxos = Vec::with_capacity(ix.utxos.len());
+        utxo_metas.iter().for_each(|utxo_meta| utxos.push(utxo_meta.clone()));
+
+        let data = translate_slice::<u8>(
+            memory_mapping,
+            ix.data.as_ptr() as u64,
+            ix.data.len() as u64,
+            true,
+        )?
+        .to_vec();
+
+        Ok(StableInstruction {
+            data: data.into(),
+            program_id: ix.program_id,
+            utxos: utxos.into(),
+        })
     }
 
     fn translate_accounts<'a, 'b>(
@@ -342,7 +389,7 @@ where
             .transaction_context
             .get_id_of_utxo_at_index(instruction_account.index_in_transaction)?;
 
-            if let Some(caller_account_index) = account_info_keys.iter().position(|id| *id == account_utxo_id) {
+            if let Some(caller_account_index) = account_info_keys.iter().position(|id| id == account_utxo_id) {
 
                 let serialized_metadata = accounts_metadata
                 .get(instruction_account.index_in_caller as usize)
@@ -433,66 +480,98 @@ fn update_caller_account(
     callee_account: &mut BorrowedUtxo<'_>,
 ) -> Result<(), Error> {
 
-    *caller_account.authority = *callee_account.get_authority();
+    // *caller_account.authority = *callee_account.get_authority();
 
-    let prev_len = *caller_account.ref_to_len_in_vm as usize;
-    let post_len = callee_account.get_data().len();
+    // let prev_len = *caller_account.ref_to_len_in_vm.get()? as usize;
+    // let post_len = callee_account.get_data().len();
 
-    if prev_len != post_len {
-        let max_increase = MAX_PERMITTED_DATA_INCREASE;
+    // if prev_len != post_len {
+    //     return Err(Box::new(InstructionError::InsufficientFunds));
+    // }
 
-        let data_overflow = post_len
-            > caller_account
-                .original_data_len
-                .saturating_add(max_increase);
-        if data_overflow {
-            return Err(Box::new(InstructionError::InvalidRealloc));
-        }
+    // if prev_len != post_len {
+    //     let max_increase = MAX_PERMITTED_DATA_INCREASE;
 
-        // If the account has been shrunk, we're going to zero the unused memory
-        // *that was previously used*.
-        if post_len < prev_len {
-                caller_account
-                    .serialized_data
-                    .get_mut(post_len..)
-                    .ok_or_else(|| Box::new(InstructionError::AccountDataTooSmall))?
-                    .fill(0);
-            }
+    //     let data_overflow = post_len
+    //         > caller_account
+    //             .original_data_len
+    //             .saturating_add(max_increase);
+    //     if data_overflow {
+    //         return Err(Box::new(InstructionError::InvalidRealloc));
+    //     }
+
+    //     // If the account has been shrunk, we're going to zero the unused memory
+    //     // *that was previously used*.
+    //     if post_len < prev_len {
+    //             caller_account
+    //                 .serialized_data
+    //                 .get_mut(post_len..)
+    //                 .ok_or_else(|| Box::new(InstructionError::AccountDataTooSmall))?
+    //                 .fill(0);
+    //         }
         
-        caller_account.serialized_data = translate_slice_mut::<u8>(
-            memory_mapping,
-            caller_account.vm_data_addr,
-            post_len as u64,
-            false, // Don't care since it is byte aligned
-        )?;
+    //     caller_account.serialized_data = translate_slice_mut::<u8>(
+    //         memory_mapping,
+    //         caller_account.vm_data_addr,
+    //         post_len as u64,
+    //         false, // Don't care since it is byte aligned
+    //     )?;
 
-        // this is the len field in the AccountInfo::data slice
-        *caller_account.ref_to_len_in_vm = post_len as u64;
+    //     // this is the len field in the AccountInfo::data slice
+    //     *caller_account.ref_to_len_in_vm.get_mut()? = post_len as u64;
 
-        // this is the len field in the serialized parameters
-        let serialized_len_ptr = translate_type_mut::<u64>(
-            memory_mapping,
-            caller_account
-                .vm_data_addr
-                .saturating_sub(std::mem::size_of::<u64>() as u64),
-            true,
-        )?;
-        *serialized_len_ptr = post_len as u64;
+    //     // this is the len field in the serialized parameters
+    //     let serialized_len_ptr = translate_type_mut::<u64>(
+    //         memory_mapping,
+    //         caller_account
+    //             .vm_data_addr
+    //             .saturating_sub(std::mem::size_of::<u64>() as u64),
+    //         true,
+    //     )?;
+    //     *serialized_len_ptr = post_len as u64;
 
 
-        let to_slice = &mut caller_account.serialized_data;
-        let from_slice = callee_account
-            .get_data()
-            .get(0..post_len)
-            .ok_or(SyscallError::InvalidLength)?;
-        if to_slice.len() != from_slice.len() {
-            return Err(Box::new(InstructionError::AccountDataTooSmall));
-        }
-        to_slice.copy_from_slice(from_slice);
+    //     let to_slice = &mut caller_account.serialized_data;
+    //     let from_slice = callee_account
+    //         .get_data()
+    //         .get(0..post_len)
+    //         .ok_or(SyscallError::InvalidLength)?;
+    //     if to_slice.len() != from_slice.len() {
+    //         return Err(Box::new(InstructionError::AccountDataTooSmall));
+    //     }
+    //     to_slice.copy_from_slice(from_slice);
 
-    }
+    // }
 
     Ok(())
 }
     
 
+#[test]
+fn test() {
+    enum VmValue<'a, T> {
+        // Once direct mapping is activated, this variant can be removed and the
+        // enum can be made a struct.
+        Translated(&'a mut T),
+    }
+    
+    impl<'a, T> VmValue<'a, T> {
+        fn get(&self) -> Result<&T, Error> {
+            match self {
+                VmValue::Translated(addr) => Ok(*addr),
+            }
+        }
+    
+        fn get_mut(&mut self) -> Result<&mut T, Error> {
+            match self {
+                VmValue::Translated(addr) => Ok(*addr),
+            }
+        }
+    }
+
+    let b = 64_u64;
+
+    let pointer = &b as *const u64;
+
+    // let a = VmValue::Translated(&mut )
+}

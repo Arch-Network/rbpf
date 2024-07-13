@@ -11,6 +11,8 @@ mod serialization;
 mod errors;
 mod program_error;
 mod syscall_error;
+mod syscalls;
+pub mod programs;
 fn main() {
 
 }

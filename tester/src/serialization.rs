@@ -269,6 +269,8 @@ pub fn deserialize_parameters(
                 
             start += size_of::<u64>(); // updated data length
 
+            println!("post_len {:?}, pre_len{:?}",post_len,pre_len);
+
             if post_len.saturating_sub(pre_len) > MAX_PERMITTED_DATA_INCREASE
                 || post_len > MAX_PERMITTED_DATA_LENGTH as usize
             {
@@ -298,6 +300,7 @@ pub fn deserialize_parameters(
                 // Change the owner at the end so that we are allowed to change the data before
                 borrowed_account.set_authority(authority)?;
             }
+            start += size_of::<[u8;32]>(); // Authority
         }
     }
     Ok(())
@@ -306,6 +309,7 @@ pub fn deserialize_parameters(
 mod tests {
     use std::{collections::HashMap, fs::File, io::Read};
 
+    use core_types::UtxoIdentity;
     use sha256::digest;
 
     use crate::processor::{InstructionUtxo, Message, MessageProcessor, TransactionUtxos, UtxoSharedData};
@@ -316,46 +320,67 @@ mod tests {
     fn test_serialize_and_back() {
         // make structs:
         use core_types::types::Instruction;
-        let instruction_a: Instruction = Instruction {
-            program_id: Pubkey([0u8;32]),
-            utxos: vec![0,1,0],
-            data: vec![1,2,3]
+        let instruction_caller: Instruction = Instruction {
+            program_id: Pubkey([1u8;32]),
+            utxos: vec![0,1],
+            data: [1u8;32].to_vec()
         };
-        let message : Message = Message { signers: vec![], instructions: vec![instruction_a] };
 
-        let utxo_a = UtxoSharedData::create(vec![1,1,1,1], Pubkey([0;32]), [2;32], 0);
-        let utxo_b = UtxoSharedData::create(vec![2,2,2,2,2], Pubkey([0;32]), [2;32], 1);
+        // let instruction_callee : Instruction = Instruction {
+        //     program_id: Pubkey([1u8;32]),
+        //     utxos: vec![0,1,0],
+        //     data: vec![1,2]
+        // };
+
+        let message : Message = Message { signers: vec![], instructions: vec![instruction_caller] };
+
+        let utxo_a = UtxoSharedData::create(vec![1,1,1,1], Pubkey([1;32]), [2;32], 0);
+        let utxo_c = UtxoSharedData::create(vec![1,1,1,1,1,1,1], Pubkey([1;32]), [2;32], 0);
+        // let utxo_b = UtxoSharedData::create(vec![2,2,2,2,2], Pubkey([1;32]), [2;32], 1);
+        
            
-        let utxos = TransactionUtxos::from(vec![utxo_a,utxo_b]);
-        let mut transaction_context : TransactionContext = TransactionContext::new(utxos, 4, 20);
+        // let utxos = TransactionUtxos::from(vec![utxo_a,utxo_b]);
 
-        let mut file = File::open("./compiled-ebpf/change-utxo-data.so").expect("can't read the elf file");
+        let mut tnx_utxos = Vec::new();
+        tnx_utxos.push((utxo_a.utxo_id(),utxo_a));
+        // tnx_utxos.push((utxo_b.utxo_id(),utxo_b));
+        tnx_utxos.push((utxo_c.utxo_id(),utxo_c));
+        let mut transaction_context : TransactionContext = TransactionContext::new(tnx_utxos, 4, 20);
 
-        let mut elf = Vec::new();
-        file.read_to_end(&mut elf).unwrap();
+        let mut file = File::open("../target/sbf-solana-solana/release/ebpf.so").expect("can't read the elf file");
+
+        let mut caller = Vec::new();
+        file.read_to_end(&mut caller).unwrap();
+
+        // let mut file = File::open("./compiled-ebpf/authority-and-data-modifier.so").expect("can't read the elf file");
+
+        // let mut callee = Vec::new();
+        // file.read_to_end(&mut callee).unwrap();
 
         let mut programs: HashMap<String,Vec<u8>> = HashMap::new();
-        programs.insert(digest(digest(Pubkey([0u8;32]).as_ref())), elf);
-
-        let instruction_utxo_a = InstructionUtxo {
-            index_in_transaction: 0,
-            index_in_caller : 0,
-            index_in_callee :0
-        };
-
-        let instruction_utxo_b = InstructionUtxo {
-            index_in_transaction: 1,
-            index_in_caller : 1,
-            index_in_callee :1
-        };
+        programs.insert(digest(digest(Pubkey([1u8;32]).as_ref())), caller);
+        // programs.insert(digest(digest(Pubkey([1u8;32]).as_ref())), callee);
 
 
-        let instruction_context =   InstructionContext {
-            nesting_level : 0,
-            instruction_data : vec![1,2,3],
-            instruction_utxos: vec![instruction_utxo_a, instruction_utxo_b],
-            program_id: Pubkey([0;32]),
-        };
+        // let instruction_utxo_a = InstructionUtxo {
+        //     index_in_transaction: 0,
+        //     index_in_caller : 0,
+        //     index_in_callee :0
+        // };
+
+        // let instruction_utxo_b = InstructionUtxo {
+        //     index_in_transaction: 1,
+        //     index_in_caller : 1,
+        //     index_in_callee :1
+        // };
+
+
+        // let instruction_context =   InstructionContext {
+        //     nesting_level : 0,
+        //     instruction_data : vec![1,2,3],
+        //     instruction_utxos: vec![instruction_utxo_a, instruction_utxo_b],
+        //     program_id: Pubkey([0;32]),
+        // };
 
         // let (parameter_bytes, serialised_accounts) =serialize_parameters(&transaction_context, &instruction_context).expect("Can't serealise");
 
