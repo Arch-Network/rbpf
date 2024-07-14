@@ -4,7 +4,7 @@ use crate::{
     utxo_info::UtxoInfo,
 };
 
-pub fn invoke_unchecked(
+pub fn invoke(
     instruction: &ProgramInstruction,
     account_infos: &[UtxoInfo],
 ) -> ProgramResult {

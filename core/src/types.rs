@@ -3,7 +3,7 @@ use std::convert::AsRef;
 use std::{cell::RefCell, collections::HashMap, hash::Hash};
 
 use crate::stable_vec::StableVec;
-use crate::UtxoId;
+use crate::{UtxoId, UtxoIdentity};
 
 #[derive(BorshSerialize, BorshDeserialize, PartialEq, Debug, Clone, Eq, Default, Hash, Copy)]
 pub struct Pubkey(pub [u8; 32]);
@@ -26,6 +26,12 @@ impl AsRef<[u8]> for Pubkey {
 impl AsMut<[u8]> for Pubkey {
     fn as_mut(&mut self) -> &mut [u8] {
         &mut self.0[..]
+    }
+}
+
+impl From<[u8;32]> for Pubkey {
+    fn from(value: [u8;32]) -> Self {
+        Pubkey(value)
     }
 }
 
@@ -66,6 +72,16 @@ pub struct ProgramInstruction {
     pub data: Vec<u8>,
 }
 
+impl ProgramInstruction {
+    pub fn from(program_id: Pubkey, utxos:Vec<UtxoId>,data: Vec<u8> ) -> Self {
+        Self {
+            program_id,
+            utxos,
+            data
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 #[repr(C)]
 pub struct StableInstruction {
@@ -84,17 +100,18 @@ impl From<ProgramInstruction> for StableInstruction {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, BorshSerialize, BorshDeserialize)]
-pub struct UtxoMeta {
-    pub txid: String,
-    pub vout: u32,
-}
+// #[derive(Clone, Debug, Eq, PartialEq, BorshSerialize, BorshDeserialize)]
+// pub struct UtxoMeta {
+//     pub txid: [u8;32],
+//     pub vout: u32,
+// }
 
-impl UtxoMeta {
-    pub fn id(&self) -> String {
-        format!("{}:{}", self.txid, self.vout)
-    }
-}
+// impl UtxoIdentity for UtxoMeta {
+//     fn utxo_id(&self) -> UtxoId {
+//         <Self as UtxoIdentity>::processor(&self.txid, self.vout)
+//     }
+// }
+
 
 #[derive(Clone, Debug, Eq, PartialEq, BorshSerialize, BorshDeserialize)]
 pub struct UnsignedTransaction {

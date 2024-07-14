@@ -258,7 +258,7 @@ impl<'a> InvokeContext<'a> {
 
         let (mut parameter_bytes,serialized_accounts) = serialize_parameters(&self.transaction_context,  self.transaction_context.get_current_instruction_context())?;
 
-        println!("Bytes : {:?}\n\n", parameter_bytes.as_slice());
+        // println!("Bytes : {:?}\n\n", parameter_bytes.as_slice());
         println!("Serialised accounts: {:?}\n", serialized_accounts);
         // Part One: Transaction Procesing
         
@@ -305,7 +305,7 @@ impl<'a> InvokeContext<'a> {
         self.set_syscall_context(SyscallContext {
             allocator: BpfAllocator::new(heap.len() as u64),
             trace_log: Vec::new(),
-            accounts_metadata: serialized_accounts.clone(),
+            accounts_metadata: serialized_accounts,
         })?;
     
         let mut vm: EbpfVm<InvokeContext> = EbpfVm::new(
@@ -319,10 +319,10 @@ impl<'a> InvokeContext<'a> {
         let (instruction_count, result) = vm.execute_program(&executable, true);
         println!("result is {:?}", result);
 
-        println!("Post processing: {:?}", parameter_bytes.as_slice());
+        // println!("Post processing: {:?}", parameter_bytes.as_slice());
 
         // PART TWO : POST PROCESSING
-        deserialize_parameters(self.transaction_context,  self.transaction_context.get_current_instruction_context(), parameter_bytes.as_slice(), &serialized_accounts)?;
+        deserialize_parameters(self.transaction_context,  self.transaction_context.get_current_instruction_context(), parameter_bytes.as_slice(), &self.get_syscall_context()?.accounts_metadata)?;
 
         Ok(())
     }

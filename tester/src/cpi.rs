@@ -202,19 +202,19 @@ fn cpi_common<S: SyscallInvokeSigned>(
     let instruction_context = transaction_context.get_current_instruction_context();
 
 
-    // for (index_in_caller, caller_account) in accounts.iter_mut() {
+    for (index_in_caller, caller_account) in accounts.iter_mut() {
 
-    //         let mut callee_account = instruction_context
-    //             .try_borrow_instruction_utxo(transaction_context, *index_in_caller)?;
+            let mut callee_account = instruction_context
+                .try_borrow_instruction_utxo(transaction_context, *index_in_caller)?;
 
-    //         update_caller_account(
-    //             invoke_context,
-    //             memory_mapping,
-    //             caller_account,
-    //             &mut callee_account,
-    //         )?;
+            update_caller_account(
+                invoke_context,
+                memory_mapping,
+                caller_account,
+                &mut callee_account,
+            )?;
         
-    // }
+    }
 
     Ok(SUCCESS)
 
@@ -480,71 +480,67 @@ fn update_caller_account(
     callee_account: &mut BorrowedUtxo<'_>,
 ) -> Result<(), Error> {
 
-    // *caller_account.authority = *callee_account.get_authority();
+    *caller_account.authority = *callee_account.get_authority();
 
-    // let prev_len = *caller_account.ref_to_len_in_vm.get()? as usize;
-    // let post_len = callee_account.get_data().len();
+    let prev_len = *caller_account.ref_to_len_in_vm.get()? as usize;
+    let post_len = callee_account.get_data().len();
 
-    // if prev_len != post_len {
-    //     return Err(Box::new(InstructionError::InsufficientFunds));
-    // }
+    if prev_len != post_len {
+        let max_increase = MAX_PERMITTED_DATA_INCREASE;
 
-    // if prev_len != post_len {
-    //     let max_increase = MAX_PERMITTED_DATA_INCREASE;
+        let data_overflow = post_len
+            > caller_account
+                .original_data_len
+                .saturating_add(max_increase);
+        if data_overflow {
+            return Err(Box::new(InstructionError::InvalidRealloc));
+        }
 
-    //     let data_overflow = post_len
-    //         > caller_account
-    //             .original_data_len
-    //             .saturating_add(max_increase);
-    //     if data_overflow {
-    //         return Err(Box::new(InstructionError::InvalidRealloc));
-    //     }
-
-    //     // If the account has been shrunk, we're going to zero the unused memory
-    //     // *that was previously used*.
-    //     if post_len < prev_len {
-    //             caller_account
-    //                 .serialized_data
-    //                 .get_mut(post_len..)
-    //                 .ok_or_else(|| Box::new(InstructionError::AccountDataTooSmall))?
-    //                 .fill(0);
-    //         }
+        // If the account has been shrunk, we're going to zero the unused memory
+        // *that was previously used*.
+        if post_len < prev_len {
+                caller_account
+                    .serialized_data
+                    .get_mut(post_len..)
+                    .ok_or_else(|| Box::new(InstructionError::AccountDataTooSmall))?
+                    .fill(0);
+            }
         
-    //     caller_account.serialized_data = translate_slice_mut::<u8>(
-    //         memory_mapping,
-    //         caller_account.vm_data_addr,
-    //         post_len as u64,
-    //         false, // Don't care since it is byte aligned
-    //     )?;
+        caller_account.serialized_data = translate_slice_mut::<u8>(
+            memory_mapping,
+            caller_account.vm_data_addr,
+            post_len as u64,
+            false, // Don't care since it is byte aligned
+        )?;
 
-    //     // this is the len field in the AccountInfo::data slice
-    //     *caller_account.ref_to_len_in_vm.get_mut()? = post_len as u64;
+        // this is the len field in the AccountInfo::data slice
+        *caller_account.ref_to_len_in_vm.get_mut()? = post_len as u64;
 
-    //     // this is the len field in the serialized parameters
-    //     let serialized_len_ptr = translate_type_mut::<u64>(
-    //         memory_mapping,
-    //         caller_account
-    //             .vm_data_addr
-    //             .saturating_sub(std::mem::size_of::<u64>() as u64),
-    //         true,
-    //     )?;
-    //     *serialized_len_ptr = post_len as u64;
+        // this is the len field in the serialized parameters
+        let serialized_len_ptr = translate_type_mut::<u64>(
+            memory_mapping,
+            caller_account
+                .vm_data_addr
+                .saturating_sub(std::mem::size_of::<u64>() as u64),
+            true,
+        )?;
+        *serialized_len_ptr = post_len as u64;
+    }
 
 
-    //     let to_slice = &mut caller_account.serialized_data;
-    //     let from_slice = callee_account
-    //         .get_data()
-    //         .get(0..post_len)
-    //         .ok_or(SyscallError::InvalidLength)?;
-    //     if to_slice.len() != from_slice.len() {
-    //         return Err(Box::new(InstructionError::AccountDataTooSmall));
-    //     }
-    //     to_slice.copy_from_slice(from_slice);
-
-    // }
-
+    let to_slice = &mut caller_account.serialized_data;
+    let from_slice = callee_account
+        .get_data()
+        .get(0..post_len)
+        .ok_or(SyscallError::InvalidLength)?;
+    if to_slice.len() != from_slice.len() {
+        return Err(Box::new(InstructionError::AccountDataTooSmall));
+    }
+    to_slice.copy_from_slice(from_slice);
     Ok(())
+
 }
+
     
 
 #[test]

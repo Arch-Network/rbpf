@@ -270,6 +270,7 @@ pub fn deserialize_parameters(
             start += size_of::<u64>(); // updated data length
 
             println!("post_len {:?}, pre_len{:?}",post_len,pre_len);
+            // println!("before borrowed utxo : {:?}",borrowed_account);
 
             if post_len.saturating_sub(pre_len) > MAX_PERMITTED_DATA_INCREASE
                 || post_len > MAX_PERMITTED_DATA_LENGTH as usize
@@ -282,8 +283,16 @@ pub fn deserialize_parameters(
             let data = buffer
                     .get(start..start + post_len)
                     .ok_or(InstructionError::InvalidArgument)?;
+            println!("data for borrowed account {:?}, is {:?}",&borrowed_account.get_data(), data );
+
+            println!("are they equal : {:?}", borrowed_account.get_data() == data );
+
+            println!("borrowed_account
+                    .can_data_be_resized(post_len) {:?}",borrowed_account
+                    .can_data_be_resized(post_len).and_then(|_| borrowed_account.can_data_be_changed()));
                 match borrowed_account
                     .can_data_be_resized(post_len)
+                    .and_then(|_| borrowed_account.can_data_be_changed())
                 {
                     Ok(()) => borrowed_account.set_data_from_slice(data)?,
                     Err(err) if borrowed_account.get_data() != data => return Err(err),
@@ -301,6 +310,7 @@ pub fn deserialize_parameters(
                 borrowed_account.set_authority(authority)?;
             }
             start += size_of::<[u8;32]>(); // Authority
+            // println!("after borrowed utxo : {:?}",borrowed_account);
         }
     }
     Ok(())
@@ -321,7 +331,7 @@ mod tests {
         // make structs:
         use core_types::types::Instruction;
         let instruction_caller: Instruction = Instruction {
-            program_id: Pubkey([1u8;32]),
+            program_id: Pubkey([0u8;32]),
             utxos: vec![0,1],
             data: [1u8;32].to_vec()
         };
@@ -335,7 +345,7 @@ mod tests {
         let message : Message = Message { signers: vec![], instructions: vec![instruction_caller] };
 
         let utxo_a = UtxoSharedData::create(vec![1,1,1,1], Pubkey([1;32]), [2;32], 0);
-        let utxo_c = UtxoSharedData::create(vec![1,1,1,1,1,1,1], Pubkey([1;32]), [2;32], 0);
+        let utxo_c = UtxoSharedData::create(vec![1,1,1,1,1,1,1], Pubkey([0;32]), [2;32], 1);
         // let utxo_b = UtxoSharedData::create(vec![2,2,2,2,2], Pubkey([1;32]), [2;32], 1);
         
            
@@ -347,19 +357,21 @@ mod tests {
         tnx_utxos.push((utxo_c.utxo_id(),utxo_c));
         let mut transaction_context : TransactionContext = TransactionContext::new(tnx_utxos, 4, 20);
 
-        let mut file = File::open("../target/sbf-solana-solana/release/ebpf.so").expect("can't read the elf file");
+        // let mut file: File = File::open("../target/sbf-solana-solana/release/ebpf.so").expect("can't read the elf file");
+
+        let mut file = File::open("./compiled-ebpf/cpi.so").expect("can't read the elf file");
 
         let mut caller = Vec::new();
         file.read_to_end(&mut caller).unwrap();
 
-        // let mut file = File::open("./compiled-ebpf/authority-and-data-modifier.so").expect("can't read the elf file");
+        let mut file = File::open("./compiled-ebpf/ebpf.so").expect("can't read the elf file");
 
-        // let mut callee = Vec::new();
-        // file.read_to_end(&mut callee).unwrap();
+        let mut callee = Vec::new();
+        file.read_to_end(&mut callee).unwrap();
 
         let mut programs: HashMap<String,Vec<u8>> = HashMap::new();
-        programs.insert(digest(digest(Pubkey([1u8;32]).as_ref())), caller);
-        // programs.insert(digest(digest(Pubkey([1u8;32]).as_ref())), callee);
+        programs.insert(digest(digest(Pubkey([0u8;32]).as_ref())), caller);
+        programs.insert(digest(digest(Pubkey([1u8;32]).as_ref())), callee);
 
 
         // let instruction_utxo_a = InstructionUtxo {

@@ -6,7 +6,7 @@ pub mod types;
 mod debug_utxo_data;
 mod log;
 mod processor;
-mod program;
+pub mod program;
 mod program_error;
 mod stable_vec;
 mod syscalls;

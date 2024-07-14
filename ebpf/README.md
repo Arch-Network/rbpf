@@ -1,27 +1,28 @@
-use core_types::{
-    entrypoint,
-    types::{ProgramInstruction, Pubkey, Transaction, TxIn, TxOut},
-    utxo_info::UtxoInfo, UtxoIdentity,
-};
-// use core_types::dentrypoint::{,};
-use bitcoin::{
-    absolute::LockTime,
-    transaction::{Transaction as BtcTransaction, Version},
-};
-use borsh::de::BorshDeserialize;
-use core_types::{msg, types::TransferInstruction,program::invoke};
-// use solana_program::entrypoint::ProgramResult;
+Name of elf file and their roles
+1. authority-and-data-modifier.so
+```pub fn process_instruction(key: &Pubkey, utxos: &[UtxoInfo], ins: &[u8]) -> Result<(), String> {
+    let first_utxo = &utxos[0];
+    let second_utxo = &utxos[1];
+    first_utxo.data.borrow_mut()[0] = 65;
+    first_utxo.data.borrow_mut()[1] = 15;
 
-// use rand;
 
-entrypoint!(process_instruction);
+
+    first_utxo.assign(&[22;32].into());
+
+    return Ok(());
+}
+```
+
+2. cpi.so
+
+```
 pub fn process_instruction(key: &Pubkey, utxos: &[UtxoInfo], ins: &[u8]) -> Result<(), String> {
     let first_utxo = &utxos[0].utxo_id();
     let second_utxo = &utxos[1].utxo_id();
 
     let mut program_id = [0u8;32];
     program_id.clone_from_slice(ins);
-
 
     let utxo2 = &utxos[2];
     utxo2.assign(&program_id.into());
@@ -30,3 +31,4 @@ pub fn process_instruction(key: &Pubkey, utxos: &[UtxoInfo], ins: &[u8]) -> Resu
 
     return Ok(());
 }
+```
