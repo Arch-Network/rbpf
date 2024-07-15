@@ -1,8 +1,9 @@
 use std::{alloc::Layout, mem::{align_of, size_of}, slice::{self, from_raw_parts_mut}, str::from_utf8};
 
+use core_types::{program::MAX_RETURN_DATA, types::Pubkey};
 use solana_rbpf::{declare_builtin_function, error::EbpfError, memory_region::{AccessType, MemoryMapping, MemoryRegion}, program::{BuiltinFunction, BuiltinProgram, FunctionRegistry}, vm::{Config}};
 
-use crate::{cpi::SyscallInvokeSignedRust, processor::InvokeContext};
+use crate::{cpi::SyscallInvokeSignedRust, processor::InvokeContext, syscall_error::SyscallError};
 
 type Error = Box<dyn std::error::Error>;
 
@@ -159,7 +160,7 @@ pub fn create_program_runtime_environment_v1<'a>(
 
     // Return data
     result.register_function_hashed(*b"sol_set_return_data", SyscallSetReturnData::vm)?;
-    // result.register_function_hashed(*b"sol_get_return_data", SyscallGetReturnData::vm)?;
+    result.register_function_hashed(*b"sol_get_return_data", SyscallGetReturnData::vm)?;
 
     // Cross-program invocation
     // result.register_function_hashed(*b"sol_invoke_signed_c", SyscallInvokeSignedC::vm)?;
@@ -395,34 +396,89 @@ declare_builtin_function!(
         memory_mapping: &mut MemoryMapping,
     ) -> Result<u64, Error> {
 
-        // if len > MAX_RETURN_DATA as u64 {
-        //     return Err(SyscallError::ReturnDataTooLarge(len, MAX_RETURN_DATA as u64).into());
-        // }
+        if len > MAX_RETURN_DATA as u64 {
+            return Err(SyscallError::ReturnDataTooLarge(len, MAX_RETURN_DATA as u64).into());
+        }
 
-        // let return_data = if len == 0 {
-        //     Vec::new()
-        // } else {
-        //     translate_slice::<u8>(
-        //         memory_mapping,
-        //         addr,
-        //         len,
-        //         // invoke_context.get_check_aligned(),
-        //         true
-        //     )?
-        //     .to_vec()
-        // };
-        // let transaction_context = &mut invoke_context.transaction_context;
-        // let program_id = *transaction_context
-        //     .get_current_instruction_context()
-        //     .and_then(|instruction_context| {
-        //         instruction_context.get_last_program_key(transaction_context)
-        //     })?;
+        let return_data = if len == 0 {
+            Vec::new()
+        } else {
+            translate_slice::<u8>(
+                memory_mapping,
+                addr,
+                len,
+                true
+            )?
+            .to_vec()
+        };
+        let transaction_context = &mut invoke_context.transaction_context;
+        let program_id = *transaction_context
+            .get_current_instruction_context()
+            .get_last_program_key();
 
-        // transaction_context.set_return_data(program_id, return_data)?;
+        transaction_context.set_return_data(program_id, return_data)?;
 
         Ok(0)
     }
 );
+
+declare_builtin_function!(
+    /// Set return data
+    SyscallGetReturnData,
+    fn rust(
+        invoke_context: &mut InvokeContext,
+        return_data_addr: u64,
+        length: u64,
+        program_id_addr: u64,
+        _arg4: u64,
+        _arg5: u64,
+        memory_mapping: &mut MemoryMapping,
+    ) -> Result<u64, Error> {
+
+        let (program_id, return_data) = invoke_context.transaction_context.get_return_data();
+        let length = length.min(return_data.len() as u64);
+        if length != 0 {
+
+            let return_data_result = translate_slice_mut::<u8>(
+                memory_mapping,
+                return_data_addr,
+                length,
+                true,
+            )?;
+
+            let to_slice = return_data_result;
+            let from_slice = return_data
+                .get(..length as usize)
+                .ok_or(SyscallError::InvokeContextBorrowFailed)?;
+            if to_slice.len() != from_slice.len() {
+                return Err(SyscallError::InvalidLength.into());
+            }
+            to_slice.copy_from_slice(from_slice);
+
+            let program_id_result = translate_type_mut::<Pubkey>(
+                memory_mapping,
+                program_id_addr,
+                true,
+            )?;
+
+            if !is_nonoverlapping(
+                to_slice.as_ptr() as usize,
+                length as usize,
+                program_id_result as *const _ as usize,
+                std::mem::size_of::<Pubkey>(),
+            ) {
+                return Err(SyscallError::CopyOverlapping.into());
+            }
+
+            *program_id_result = *program_id;
+        }
+
+        // Return the actual length, rather the length returned
+        Ok(return_data.len() as u64)
+    }
+);
+
+
 declare_builtin_function!(
     /// Panic syscall function, called when the SBF program calls 'sol_panic_()`
     /// Causes the SBF program to be halted immediately

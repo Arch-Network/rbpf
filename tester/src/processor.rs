@@ -421,6 +421,12 @@ impl UtxoSharedData {
 
 pub type TransactionUtxo = (UtxoId, UtxoSharedData);
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TransactionReturnData {
+    pub program_id: Pubkey,
+    pub data: Vec<u8>,
+}
+
 #[derive(Debug, Clone)]
 pub struct TransactionContext {
     // instructions: Vec<Instruction>,
@@ -429,6 +435,7 @@ pub struct TransactionContext {
     instruction_stack: Vec<usize>,
     instruction_trace: Vec<InstructionContext>,
     utxo_ids: Pin<Box<[UtxoId]>>,
+    return_data: TransactionReturnData,
     utxos: Rc<TransactionUtxos>,
 }
 
@@ -450,7 +457,23 @@ impl TransactionContext {
                 instruction_trace_capacity,
                 instruction_stack: Vec::with_capacity(instruction_stack_capacity),
                 instruction_trace: vec![InstructionContext::default()],
+                return_data: TransactionReturnData::default(),
             }
+    }
+
+    /// Gets the return data of the current InstructionContext or any above
+    pub fn get_return_data(&self) -> (&Pubkey, &[u8]) {
+        (&self.return_data.program_id, &self.return_data.data)
+    }
+
+    /// Set the return data of the current InstructionContext
+    pub fn set_return_data(
+        &mut self,
+        program_id: Pubkey,
+        data: Vec<u8>,
+    ) -> Result<(), InstructionError> {
+        self.return_data = TransactionReturnData { program_id, data };
+        Ok(())
     }
 
     pub fn push(&mut self) -> Result<(), InstructionError> {

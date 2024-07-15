@@ -1,7 +1,5 @@
 use core_types::{
-    entrypoint,
-    types::{ProgramInstruction, Pubkey, Transaction, TxIn, TxOut},
-    utxo_info::UtxoInfo, UtxoIdentity,
+    entrypoint, program::set_return_data, types::{ProgramInstruction, Pubkey, Transaction, TxIn, TxOut}, utxo_info::UtxoInfo, UtxoIdentity
 };
 // use core_types::dentrypoint::{,};
 use bitcoin::{
@@ -16,17 +14,7 @@ use core_types::{msg, types::TransferInstruction,program::invoke};
 
 entrypoint!(process_instruction);
 pub fn process_instruction(key: &Pubkey, utxos: &[UtxoInfo], ins: &[u8]) -> Result<(), String> {
-    let first_utxo = &utxos[0].utxo_id();
-    let second_utxo = &utxos[1].utxo_id();
 
-    let mut program_id = [0u8;32];
-    program_id.clone_from_slice(ins);
-
-
-    let utxo2 = &utxos[2];
-    utxo2.assign(&program_id.into());
-
-    invoke(&ProgramInstruction::from(program_id.into(),vec![first_utxo.clone(), second_utxo.clone()],vec![0]),&[utxos[0].clone(), utxos[1].clone()]).expect("failed at cpi");
-
+    set_return_data("Hello".as_bytes());
     return Ok(());
 }
